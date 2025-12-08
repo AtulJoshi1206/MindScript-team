@@ -37,7 +37,7 @@ const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // --- Gemini API Configuration ---
-const apiKey = "AIzaSyBXtr7N3Yg6yRss3m5Y9J5ky4PRUYUKpOg";
+const apiKey = "api_key";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
 // --- Helper Functions ---
