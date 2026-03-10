@@ -1,50 +1,95 @@
 import React from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, ArrowLeft, CheckCircle2, Sparkles } from 'lucide-react';
 import ScrollingFooter from '../components/ScrollingFooter';
 import { ASSESSMENT_QUESTIONS } from '../constants';
+import MindfulBackground from '../components/MindfulBackground';
 
-const QuizPage = ({ quizAnswers, setQuizAnswers, handleQuizSubmit }) => {
+const QuizPage = ({ quizAnswers, setQuizAnswers, handleQuizSubmit, onBack }) => {
+  const answeredCount = Object.keys(quizAnswers).length;
+  const totalQuestions = ASSESSMENT_QUESTIONS.length;
+  const progress = (answeredCount / totalQuestions) * 100;
+
   return (
-    <div className="min-h-screen py-12 px-4 flex flex-col items-center justify-center text-dark-text animate-fade-in">
-      <div className="w-full max-w-3xl bg-dark-card rounded-3xl shadow-xl overflow-hidden animate-slide-in-left">
-        <div className="bg-dark-primary p-6">
-          <h2 className="text-dark-text text-2xl font-extrabold flex items-center gap-3">
-            <Activity className="w-8 h-8"/> Wellness Assessment
-          </h2>
-          <p className="text-dark-text opacity-80 text-base mt-2">Answer based on how you have felt over the last 2 weeks.</p>
-        </div>
-        <div className="p-8 space-y-10">
-          {ASSESSMENT_QUESTIONS.map((q, idx) => (
-            <div key={idx} className="space-y-4">
-              <p className="font-semibold text-dark-text text-lg">{idx + 1}. {q}</p>
-              <div className="flex justify-between gap-3">
-                {[0, 1, 2, 3, 4].map((val) => (
-                  <button
-                    key={val}
-                    onClick={() => setQuizAnswers(prev => ({...prev, [idx]: val}))}
-                    className={`flex-1 py-3 rounded-full text-base font-medium transition-all shadow-md border ${
-                      quizAnswers[idx] === val 
-                        ? 'bg-dark-primary text-white border-dark-primary hover:bg-dark-secondary'
-                        : 'bg-dark-bg text-dark-text border-dark-text/30 hover:bg-dark-card hover:border-dark-primary'
-                    }`}
-                  >
-                    {['Never', 'Rarely', 'Sometimes', 'Often', 'Always'][val]}
-                  </button>
-                ))}
-              </div>
+    <div className="min-h-screen p-4 sm:p-6 pb-16 animate-fade-in relative">
+      <MindfulBackground variant="cosmos" />
+      <div className="max-w-2xl mx-auto relative z-10">
+        <button onClick={onBack} className="flex items-center gap-2 text-ms-muted hover:text-ms-primary-light transition-colors mb-4 text-sm">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+
+        <div className="glass-card rounded-2xl overflow-hidden animate-slide-up">
+          {/* Header */}
+          <div className="p-6" style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(20,184,166,0.1) 100%)' }}>
+            <div className="flex items-center gap-3 mb-2">
+              <Activity className="w-7 h-7 text-ms-teal" />
+              <h2 className="text-xl font-bold text-ms-text">Wellness Assessment</h2>
             </div>
-          ))}
-          
-          <button 
-            onClick={handleQuizSubmit}
-            disabled={Object.keys(quizAnswers).length < ASSESSMENT_QUESTIONS.length}
-            className="w-full mt-8 bg-dark-secondary text-white py-4 rounded-full font-extrabold tracking-wide text-lg shadow-lg hover:bg-dark-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all animate-pop-in"
-          >
-            Complete Assessment
-          </button>
+            <p className="text-ms-muted text-sm">Answer based on how you have felt over the last 2 weeks.</p>
+            {/* Progress bar */}
+            <div className="mt-4 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <div
+                className="h-full rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #7c3aed, #14b8a6)' }}
+              />
+            </div>
+            <div className="flex justify-between mt-2">
+              <p className="text-ms-muted text-xs">{answeredCount} of {totalQuestions} answered</p>
+              {answeredCount === totalQuestions && (
+                <p className="text-ms-teal text-xs flex items-center gap-1 animate-fade-in">
+                  <Sparkles className="w-3 h-3" /> All done!
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Questions */}
+          <div className="p-6 space-y-8">
+            {ASSESSMENT_QUESTIONS.map((q, idx) => (
+              <div key={idx} className="animate-fade-in" style={{ animationDelay: `${idx * 0.03}s` }}>
+                <p className="font-medium text-ms-text mb-3 text-[15px]">
+                  <span className="text-ms-primary-light mr-2">{idx + 1}.</span>{q}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[0, 1, 2, 3, 4].map((val) => {
+                    const labels = ['Never', 'Rarely', 'Sometimes', 'Often', 'Always'];
+                    const isSelected = quizAnswers[idx] === val;
+                    return (
+                      <button
+                        key={val}
+                        onClick={() => setQuizAnswers(prev => ({ ...prev, [idx]: val }))}
+                        className={`flex-1 min-w-[70px] py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isSelected
+                            ? 'text-white shadow-lg scale-[1.02]'
+                            : 'text-ms-muted hover:text-ms-text hover:scale-[1.01]'
+                          }`}
+                        style={isSelected
+                          ? { background: 'linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%)' }
+                          : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }
+                        }
+                      >
+                        {labels[val]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            <button
+              onClick={handleQuizSubmit}
+              disabled={answeredCount < totalQuestions}
+              className="btn-primary w-full flex items-center justify-center gap-2 py-3.5 rounded-xl mt-4"
+            >
+              <CheckCircle2 className="w-5 h-5" /> Complete Assessment
+            </button>
+
+            <p className="text-center text-ms-muted/40 text-xs italic">
+              "Knowing yourself is the beginning of all wisdom." - Aristotle
+            </p>
+          </div>
         </div>
       </div>
-      <ScrollingFooter className="mt-12" />
+
+      <ScrollingFooter />
     </div>
   );
 };
