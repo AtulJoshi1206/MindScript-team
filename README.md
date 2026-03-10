@@ -1,6 +1,7 @@
 <div align="center">
 
-<img src="public/mindscript-icon.png" width="96" height="96" style="border-radius: 24px" />
+<img width="64" height="64" alt="image" src="https://github.com/user-attachments/assets/d2d07c72-c966-4017-bfd0-e37386a45d12" />
+
 
 # MindScript
 
