@@ -21,6 +21,7 @@ const BACKGROUNDS = [
     accent: 'rgba(124,58,237,0.08)',
   },
 ];
+const VARIANT_INDEX = { aurora: 0, forest: 1, cosmos: 2 };
 
 // Floating particle dot
 function Particle({ style }) {
@@ -42,7 +43,7 @@ function Particle({ style }) {
   );
 }
 
-const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
+const PARTICLES = Array.from({ length: 18 }, () => ({
   size: `${Math.random() * 4 + 2}px`,
   x: `${Math.random() * 100}%`,
   y: `${Math.random() * 100}%`,
@@ -66,8 +67,6 @@ export default function MindfulBackground({ variant = 'auto' }) {
   // Determine background based on variant or auto-cycle
   useEffect(() => {
     if (variant !== 'auto') {
-      const map = { aurora: 0, forest: 1, cosmos: 2 };
-      setActiveIdx(map[variant] ?? 0);
       return;
     }
 
@@ -84,7 +83,8 @@ export default function MindfulBackground({ variant = 'auto' }) {
     return () => clearInterval(intervalRef.current);
   }, [variant]);
 
-  const bg = BACKGROUNDS[activeIdx];
+  const displayedIdx = variant === 'auto' ? activeIdx : VARIANT_INDEX[variant] ?? 0;
+  const bg = BACKGROUNDS[displayedIdx];
   const prevBg = prevIdx !== null ? BACKGROUNDS[prevIdx] : null;
 
   return (
@@ -104,7 +104,7 @@ export default function MindfulBackground({ variant = 'auto' }) {
 
       {/* Active image fading in */}
       <div
-        key={`active-${activeIdx}`}
+        key={`active-${displayedIdx}`}
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: `url(${bg.src})`,

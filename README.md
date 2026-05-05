@@ -356,7 +356,7 @@ cd MindScript-project-main/diary_backend
 pip install fastapi uvicorn joblib scikit-learn pydantic
 
 # Start the server
-uvicorn server:app --reload --port 8000
+python3 -m uvicorn server:app --reload --port 8000
 ```
 
 The backend will start at: **http://localhost:8000**

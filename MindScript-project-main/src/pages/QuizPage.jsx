@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Activity, ArrowLeft, CheckCircle2, Sparkles } from 'lucide-react';
 import ScrollingFooter from '../components/ScrollingFooter';
-import { ASSESSMENT_QUESTIONS } from '../constants';
+import { getRandomizedAssessmentQuestions, ASSESSMENT_OPTION_LABELS } from '../constants';
 import MindfulBackground from '../components/MindfulBackground';
 
 const QuizPage = ({ quizAnswers, setQuizAnswers, handleQuizSubmit, onBack }) => {
+  const questions = useMemo(() => getRandomizedAssessmentQuestions(), []);
+  const optionLabels = ASSESSMENT_OPTION_LABELS;
+
   const answeredCount = Object.keys(quizAnswers).length;
-  const totalQuestions = ASSESSMENT_QUESTIONS.length;
-  const progress = (answeredCount / totalQuestions) * 100;
+  const totalQuestions = questions.length;
+  const progress = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
 
   return (
     <div className="min-h-screen p-4 sm:p-6 pb-16 animate-fade-in relative">
@@ -44,14 +47,13 @@ const QuizPage = ({ quizAnswers, setQuizAnswers, handleQuizSubmit, onBack }) => 
 
           {/* Questions */}
           <div className="p-6 space-y-8">
-            {ASSESSMENT_QUESTIONS.map((q, idx) => (
+            {questions.map((q, idx) => (
               <div key={idx} className="animate-fade-in" style={{ animationDelay: `${idx * 0.03}s` }}>
                 <p className="font-medium text-ms-text mb-3 text-[15px]">
                   <span className="text-ms-primary-light mr-2">{idx + 1}.</span>{q}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {[0, 1, 2, 3, 4].map((val) => {
-                    const labels = ['Never', 'Rarely', 'Sometimes', 'Often', 'Always'];
                     const isSelected = quizAnswers[idx] === val;
                     return (
                       <button
@@ -66,7 +68,7 @@ const QuizPage = ({ quizAnswers, setQuizAnswers, handleQuizSubmit, onBack }) => 
                           : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }
                         }
                       >
-                        {labels[val]}
+                        {optionLabels[val]}
                       </button>
                     );
                   })}
@@ -75,7 +77,7 @@ const QuizPage = ({ quizAnswers, setQuizAnswers, handleQuizSubmit, onBack }) => 
             ))}
 
             <button
-              onClick={handleQuizSubmit}
+              onClick={() => handleQuizSubmit(questions)}
               disabled={answeredCount < totalQuestions}
               className="btn-primary w-full flex items-center justify-center gap-2 py-3.5 rounded-xl mt-4"
             >

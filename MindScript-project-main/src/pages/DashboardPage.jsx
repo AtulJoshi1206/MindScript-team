@@ -3,7 +3,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import {
-  BookOpen, Activity, MessageCircle, TrendingUp, LogOut, Sparkles, Heart, Quote
+  BookOpen, Activity, MessageCircle, TrendingUp, LogOut, Sparkles, Heart, Quote,
+  Wind, Zap, Target, Smile
 } from 'lucide-react';
 import MindfulBackground from '../components/MindfulBackground';
 import ScrollingFooter from '../components/ScrollingFooter';
@@ -23,22 +24,24 @@ const DashboardPage = ({ userName, scoreHistory, onStartDiary, onStartQuiz, onSt
   }, []);
 
   const getScoreColor = (s) => {
-    if (s > 70) return 'text-emerald-400';
-    if (s > 40) return 'text-ms-accent';
+    if (s > 0.7) return 'text-emerald-400';
+    if (s > 0.4) return 'text-ms-accent';
     return 'text-ms-secondary';
   };
 
   const getScoreBg = (s) => {
-    if (s > 70) return 'from-emerald-500/20 to-emerald-500/5';
-    if (s > 40) return 'from-ms-accent/20 to-ms-accent/5';
+    if (s > 0.7) return 'from-emerald-500/20 to-emerald-500/5';
+    if (s > 0.4) return 'from-ms-accent/20 to-ms-accent/5';
     return 'from-ms-secondary/20 to-ms-secondary/5';
   };
 
   const getScoreEmoji = (s) => {
-    if (s > 70) return 'Thriving';
-    if (s > 40) return 'Coping';
+    if (s > 0.7) return 'Thriving';
+    if (s > 0.4) return 'Coping';
     return 'Needs Care';
   };
+
+  const formatScore = (s) => Number(s).toFixed(2);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -105,10 +108,37 @@ const DashboardPage = ({ userName, scoreHistory, onStartDiary, onStartQuiz, onSt
             </div>
 
             {latestScore !== null && (
-              <div className={`rounded-2xl p-4 bg-gradient-to-br ${getScoreBg(latestScore)} border border-white/5 animate-pop-in`}>
-                <p className="text-xs text-ms-muted mb-1">Latest Score</p>
-                <p className={`text-3xl font-bold ${getScoreColor(latestScore)}`}>{latestScore}</p>
-                <p className={`text-xs mt-1 ${getScoreColor(latestScore)}`}>{getScoreEmoji(latestScore)}</p>
+              <div className="flex-1 min-w-[240px] max-w-sm relative group mt-4 sm:mt-0 animate-fade-in">
+                <div className={`absolute inset-0 rounded-2xl opacity-20 bg-gradient-to-br ${getScoreBg(latestScore)} transition-opacity duration-500 group-hover:opacity-30 blur-sm`}></div>
+                <div className="relative glass-card rounded-2xl p-5 border border-white/5 overflow-hidden">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm font-medium text-ms-text/90 flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-ms-muted" /> Wellness State
+                    </p>
+                    <span className={`text-xs px-3 py-1 rounded-full bg-white/5 font-medium border border-white/10 shadow-sm ${getScoreColor(latestScore)}`}>
+                      {getScoreEmoji(latestScore)}
+                    </span>
+                  </div>
+                  
+                  {/* Energy/Wellness Bar instead of a number */}
+                  <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden shadow-inner">
+                    <div 
+                      className="h-full rounded-full transition-all duration-1000 ease-out relative"
+                      style={{ 
+                        width: `${Math.max(15, latestScore * 100)}%`,
+                        background: latestScore > 0.7 ? '#34d399' : latestScore > 0.4 ? '#a78bfa' : '#fb7185',
+                        boxShadow: `0 0 10px ${latestScore > 0.7 ? '#34d399' : latestScore > 0.4 ? '#a78bfa' : '#fb7185'}`
+                      }}
+                    >
+                      <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between text-[10px] text-ms-muted uppercase tracking-widest font-semibold mt-2">
+                    <span>Recharging</span>
+                    <span>Thriving</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -175,12 +205,45 @@ const DashboardPage = ({ userName, scoreHistory, onStartDiary, onStartQuiz, onSt
               <TrendingUp className="w-5 h-5 text-ms-primary-light" />
               <h3 className="font-semibold text-ms-text">Your Wellness Journey</h3>
             </div>
-            <div className="h-56 w-full">
+            <div className="grid gap-4 sm:grid-cols-2 mb-6 mt-2">
+              <div className="rounded-2xl p-4 bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 border border-indigo-500/10 hover:border-indigo-500/30 transition-colors group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wind className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform" />
+                  <span className="font-semibold text-indigo-100">Yoga & Breath</span>
+                </div>
+                <p className="text-xs text-ms-muted/90 leading-relaxed">Gentle stretches, breath awareness, and a short grounding flow can calm the mind and reset your day.</p>
+              </div>
+
+              <div className="rounded-2xl p-4 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/10 hover:border-emerald-500/30 transition-colors group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <span className="font-semibold text-emerald-100">Active Movement</span>
+                </div>
+                <p className="text-xs text-ms-muted/90 leading-relaxed">A brisk walk, a bodyweight set, or 5 minutes of mindful movement lifts your energy and supports resilience.</p>
+              </div>
+
+              <div className="rounded-2xl p-4 bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/10 hover:border-amber-500/30 transition-colors group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+                  <span className="font-semibold text-amber-100">Motivation Focus</span>
+                </div>
+                <p className="text-xs text-ms-muted/90 leading-relaxed">Keep celebrating small wins, stay consistent, and remind yourself that progress is built one step at a time.</p>
+              </div>
+
+              <div className="rounded-2xl p-4 bg-gradient-to-br from-rose-500/10 to-rose-500/5 border border-rose-500/10 hover:border-rose-500/30 transition-colors group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Smile className="w-5 h-5 text-rose-400 group-hover:scale-110 transition-transform" />
+                  <span className="font-semibold text-rose-100">Joyful Moments</span>
+                </div>
+                <p className="text-xs text-ms-muted/90 leading-relaxed">When you feel good, keep the momentum with gratitude journaling or a joy-filled ritual.</p>
+              </div>
+            </div>
+            <div className="h-56 w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                   <XAxis dataKey="date" tick={{ fill: '#8888aa', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.05)' }} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={{ fill: '#8888aa', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.05)' }} tickLine={false} />
+                  <YAxis domain={[0, 1]} tick={{ fill: '#8888aa', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.05)' }} tickLine={false} />
                   <Tooltip
                     contentStyle={{
                       borderRadius: '12px', border: 'none',

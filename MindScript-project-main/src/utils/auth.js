@@ -3,6 +3,7 @@
 const USERS_KEY = 'mindscript_users';
 const SESSION_KEY = 'mindscript_session';
 const SCORES_PREFIX = 'mindscript_scores_';
+const CONVERSATIONS_PREFIX = 'mindscript_conversations_';
 
 async function hashPassword(password, salt) {
   const encoder = new TextEncoder();
@@ -96,7 +97,15 @@ export function clearSession() {
 export function getUserScores(email) {
   try {
     const key = SCORES_PREFIX + email.toLowerCase().trim();
-    return JSON.parse(localStorage.getItem(key) || '[]');
+    const scores = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(scores)
+      ? scores.map(record => ({
+        ...record,
+        score: typeof record.score === 'number' && record.score > 1
+          ? Number((record.score / 100).toFixed(2))
+          : record.score,
+      }))
+      : [];
   } catch {
     return [];
   }
@@ -105,7 +114,26 @@ export function getUserScores(email) {
 export function saveUserScore(email, scoreRecord) {
   const key = SCORES_PREFIX + email.toLowerCase().trim();
   const scores = getUserScores(email);
-  scores.push({ ...scoreRecord, timestamp: Date.now() });
+  const score = typeof scoreRecord.score === 'number' && scoreRecord.score > 1
+    ? Number((scoreRecord.score / 100).toFixed(2))
+    : scoreRecord.score;
+  scores.push({ ...scoreRecord, score, timestamp: Date.now() });
   localStorage.setItem(key, JSON.stringify(scores));
   return scores;
+}
+
+export function getUserConversation(email) {
+  try {
+    const key = CONVERSATIONS_PREFIX + email.toLowerCase().trim();
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function saveUserConversation(email, conversation) {
+  const key = CONVERSATIONS_PREFIX + email.toLowerCase().trim();
+  const normalized = Array.isArray(conversation) ? conversation : [];
+  localStorage.setItem(key, JSON.stringify(normalized));
+  return normalized;
 }

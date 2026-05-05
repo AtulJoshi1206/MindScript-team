@@ -14,46 +14,14 @@ import LoadingSpinner from './components/LoadingSpinner';
 // Auth utilities
 import {
   registerUser, loginUser, setSession, getSession, clearSession,
-  getUserScores, saveUserScore,
+  getUserScores, saveUserScore, getUserConversation, saveUserConversation,
 } from './utils/auth';
 
 // Constants
 import { ASSESSMENT_QUESTIONS } from './constants';
 
-// --- Gemini API Configuration ---
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyClsSRbpt_QMoLAxREWjPanhCwhYibefYQ";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
 // --- Helper Functions ---
-async function fetchGemini(payload, retryCount = 0) {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
-    const response = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      if (response.status === 429 && retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 1000;
-        await new Promise(res => setTimeout(res, delay));
-        return fetchGemini(payload, retryCount + 1);
-      }
-      throw new Error(`API Error: ${response.status}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error("Gemini API fail:", error);
-    return null;
-  }
-}
-
-async function fetchCustomModel(content) {
+async function fetchLocalModel(content) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
@@ -75,114 +43,239 @@ async function fetchCustomModel(content) {
   }
 }
 
-// --- Offline scoring: keyword-based sentiment analysis ---
-function offlineAnalyze(text) {
-  const lower = text.toLowerCase();
-
-  const negativeWords = [
-    'die', 'death', 'suicide', 'kill', 'hate', 'hopeless', 'worthless', 'depressed',
-    'depression', 'anxious', 'anxiety', 'panic', 'scared', 'afraid', 'lonely', 'alone',
-    'cry', 'crying', 'sad', 'miserable', 'terrible', 'awful', 'worst', 'pain', 'hurt',
-    'suffer', 'broken', 'empty', 'numb', 'tired', 'exhausted', 'stressed', 'angry',
-    'furious', 'helpless', 'useless', 'failure', 'failed', 'lost', 'confused', 'overwhelmed',
-    'nervous', 'worried', 'insomnia', 'cant sleep', 'no one', 'nobody cares', 'give up',
-    'not worth', 'end it', 'self harm', 'cutting', 'overdose',
-  ];
-
-  const positiveWords = [
-    'happy', 'joy', 'joyful', 'grateful', 'thankful', 'blessed', 'love', 'loved',
-    'hopeful', 'hope', 'better', 'good', 'great', 'wonderful', 'amazing', 'excited',
-    'peaceful', 'calm', 'relaxed', 'confident', 'strong', 'motivated', 'inspired',
-    'cheerful', 'smile', 'laugh', 'fun', 'enjoy', 'proud', 'accomplished', 'success',
-    'healthy', 'well', 'fine', 'okay', 'comfortable', 'safe', 'supported', 'friends',
-    'family', 'beautiful', 'optimistic', 'progress', 'improve', 'heal', 'recover',
-  ];
-
-  const severeWords = ['die', 'death', 'suicide', 'kill', 'end it', 'self harm', 'overdose', 'not worth living'];
-
-  let negCount = 0, posCount = 0, severeCount = 0;
-  for (const w of negativeWords) if (lower.includes(w)) negCount++;
-  for (const w of positiveWords) if (lower.includes(w)) posCount++;
-  for (const w of severeWords) if (lower.includes(w)) severeCount++;
-
-  // Score calculation
-  let score;
-  if (severeCount >= 2) score = Math.max(5, 15 - severeCount * 5);
-  else if (severeCount === 1) score = 20 + posCount * 3;
-  else if (negCount === 0 && posCount === 0) score = 55;
-  else {
-    const ratio = posCount / Math.max(1, posCount + negCount);
-    score = Math.round(20 + ratio * 70);
-  }
-  score = Math.max(5, Math.min(95, score));
-
-  // Generate message
-  let message;
-  if (score <= 25) {
-    message = "I can sense you're going through a really tough time. Please know that you're not alone, and it's okay to ask for help. I'm here for you.";
-  } else if (score <= 45) {
-    message = "It sounds like things have been difficult lately. I appreciate you sharing this with me. Let's talk about what's been on your mind.";
-  } else if (score <= 65) {
-    message = "Thank you for opening up. It seems like you're dealing with some mixed feelings. Let's explore what's going on together.";
-  } else {
-    message = "It's good to hear from you! It sounds like things are going reasonably well. Let's keep this positive momentum going.";
-  }
-
-  return { score, message };
-}
-
-// Offline chat response based on keywords
-function offlineChatReply(userText, userName) {
-  const lower = userText.toLowerCase();
-  const name = userName || 'there';
-
-  if (lower.match(/\b(die|suicide|kill|end it|self harm)\b/)) {
-    return `${name}, I hear you and I take what you're saying seriously. Please reach out to a crisis helpline - you deserve support right now. You matter, and people care about you.`;
-  }
-  if (lower.match(/\b(sad|depressed|unhappy|miserable|cry)\b/)) {
-    return `I'm sorry you're feeling this way, ${name}. Sadness is a natural emotion, and it's brave of you to express it. What do you think triggered these feelings?`;
-  }
-  if (lower.match(/\b(anxious|anxiety|nervous|scared|worried|panic)\b/)) {
-    return `Anxiety can feel really overwhelming, ${name}. Try taking slow, deep breaths right now. What specifically is worrying you the most?`;
-  }
-  if (lower.match(/\b(angry|hate|furious|frustrated)\b/)) {
-    return `It sounds like you're feeling a lot of frustration, ${name}. That's completely valid. What's been making you feel this way?`;
-  }
-  if (lower.match(/\b(lonely|alone|no one|nobody)\b/)) {
-    return `Feeling lonely is really hard, ${name}. I want you to know that I'm here with you right now. Can you tell me more about what's been going on?`;
-  }
-  if (lower.match(/\b(tired|exhausted|stressed|overwhelmed)\b/)) {
-    return `It sounds like you've been carrying a lot, ${name}. Rest is important too. What feels most overwhelming to you right now?`;
-  }
-  if (lower.match(/\b(happy|good|great|better|wonderful|grateful)\b/)) {
-    return `That's really wonderful to hear, ${name}! What's been contributing to these positive feelings? I'd love to know more.`;
-  }
-  if (lower.match(/\b(thank|thanks)\b/)) {
-    return `You're welcome, ${name}. I'm always here whenever you need to talk. How are you feeling now?`;
-  }
-
-  return `Thank you for sharing that, ${name}. I'd like to understand better - can you tell me more about what's on your mind?`;
-}
-
-// Offline score recalculation from chat history
-function offlineRecalculateScore(history, currentScore) {
-  const recentUserMessages = history.filter(m => m.role === 'user').slice(-5);
-  const combined = recentUserMessages.map(m => m.text).join(' ');
-  const analysis = offlineAnalyze(combined);
-  // Blend with current score (70% new analysis, 30% previous)
-  return Math.round(analysis.score * 0.7 + (currentScore || 50) * 0.3);
-}
-
-function extractJsonFromText(text) {
-  if (!text || typeof text !== 'string') return null;
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
+async function fetchLocalChatReply(message, history, mentalScore, userName) {
   try {
-    return JSON.parse(jsonMatch[0]);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    const response = await fetch("http://localhost:8000/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message,
+        history: history.slice(-8),
+        mental_score: mentalScore ?? null,
+        user_name: userName ?? null,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (typeof data.reply === "string" && data.reply.trim()) return data.reply.trim();
+    return null;
   } catch {
-    const cleaned = jsonMatch[0].replace(/[\u0000-\u001F]+/g, '').trim();
-    try { return JSON.parse(cleaned); } catch { return null; }
+    return null;
   }
+}
+
+function calculateQuizScore(quizAnswers) {
+  const values = Object.values(quizAnswers)
+    .map(Number)
+    .filter((value) => !Number.isNaN(value));
+
+  if (values.length === 0) return 0.5;
+
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const maxScore = values.length * 4;
+  return Number((total / maxScore).toFixed(2));
+}
+
+function buildQuizSupportiveMessage(score) {
+  if (score >= 0.75) {
+    return "Your responses show a strong sense of wellbeing. Let's keep noticing what is working and what feels supportive.";
+  }
+
+  if (score >= 0.45) {
+    return "Your responses are mixed, and that is okay. We can explore what feels manageable and what feels harder right now.";
+  }
+
+  return "It sounds like this has been a difficult time. I'm here with you, and we can take it one step at a time.";
+}
+
+async function transcribeVoiceBlob(blob) {
+  try {
+    const formData = new FormData();
+    const extension = blob.type.includes('mp4') ? 'm4a' : 'webm';
+    formData.append('file', blob, `mindscript-voice.${extension}`);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+
+    const response = await fetch("http://localhost:8000/transcribe-audio", {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (typeof data.text === "string") return data;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchSpeechAudio(text) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch("http://localhost:8000/speak", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) return null;
+    return await response.blob();
+  } catch {
+    return null;
+  }
+}
+
+const HINDI_DEVANAGARI_RE = /[\u0900-\u097F]/;
+const ROMAN_HINDI_RE = /\b(main|mai|mein|mujhe|mera|meri|mere|tum|tumhe|aap|apko|kaise|kaisa|kaisi|kya|kyu|kyun|nahi|nahin|haan|hoon|hun|hai|kar|lagta|lagti|achha|accha|theek|khush|dukhi|pareshan|darr|dar|zindagi|kaam|ghar|dost|baat|batao|samajh|bas|yaar)\b/gi;
+
+function detectMessageLanguage(text) {
+  if (HINDI_DEVANAGARI_RE.test(text)) return 'hi';
+  const matches = text.match(ROMAN_HINDI_RE) || [];
+  const words = text.match(/\b[\w']+\b/g) || [];
+  return matches.length >= 2 || (matches.length === 1 && words.length <= 8) ? 'hi' : 'en';
+}
+
+function usesDevanagari(text) {
+  return HINDI_DEVANAGARI_RE.test(text);
+}
+
+function buildOfflineChatReply(message, history) {
+  const lower = message.toLowerCase();
+  const language = detectMessageLanguage(message);
+  const isDevanagari = usesDevanagari(message);
+  
+  // Detect severity - self-harm, suicide, severe distress
+  const severityEnglish = /\b(hurt|harm|kill|suicide|die|death|end it|cut|blade|rope|overdose|disappear)\b/.test(lower);
+  const severityDevanagari = /(चोट|नुकसान|मौत|मर|आत्महत्या|खुद को|ख़त्म|बस|ठीक नहीं)/.test(message);
+  const isSevere = severityEnglish || severityDevanagari;
+  
+  // Detect emotional tone - check BOTH English Roman AND Devanagari patterns
+  const positiveEnglish = /\b(happy|good|great|better|khush|achha|accha|proud|improve|strength|strong|well|wonderful)\b/.test(lower);
+  const positiveDevanagari = /(खुश|अच्छा|बेहतर|गर्व|कामयाब|सुकून|बहुत अच्छा|प्रसन्न|शानदार|बेहतरीन|आशान्वित|खुश)/.test(message);
+  const positive = !isSevere && (positiveEnglish || positiveDevanagari);
+  
+  const distressedEnglish = /\b(sad|down|tired|anxious|panic|alone|empty|stress|stressed|depress|upset|dukhi|pareshan|tension|udaas|akela|dar|darr|helpless|hopeless|fail|useless|numb|hurt|pain|miserable|overwhelmed|broken)\b/.test(lower);
+  const distressedDevanagari = /(उदास|दुख|परेशान|तनाव|डर|अकेला|थक|घबर|निराश|असहाय|हताश|टूटा|दर्द|रो|रुलाई|चिंता|बेचैन|दुःख)/.test(message);
+  const distressed = (positiveEnglish || positiveDevanagari) ? false : (distressedEnglish || distressedDevanagari);
+  
+  // Build options based on language, tone, and severity
+  let options = [];
+  
+  if (isSevere) {
+    // Severe distress - prioritize safety and professional help
+    if (language === 'hi' && isDevanagari) {
+      options = [
+        "मेरी चिंता है तुम्हारे बारे में। क्या तुम किसी विश्वसनीय व्यक्ति को बता सकते हो? कृपया राष्ट्रीय आत्महत्या निवारण हेल्पलाइन को कॉल करो - 1071।",
+        "तुम महत्वपूर्ण हो। यह भावना गुजर जाएगी, लेकिन अभी तुम्हें मदद चाहिए। क्या तुम किसी डॉक्टर से बात कर सकते हो?",
+      ];
+    } else if (language === 'hi') {
+      options = [
+        "Meri chinta hai tumhare baare mein. Kya tum kisi vishwasaneeya vyakti ko bata sakte ho? Rashtriya Aatmahatya Navaaran Helpline: 1071",
+        "Tum important ho. Yeh feeling theek ho jayega, lekin abhi tumhe madad chahiye. Doctor se baat kar sakte ho?",
+      ];
+    } else {
+      options = [
+        "I'm really concerned about you. Please reach out to someone you trust or call a crisis helpline - National Suicide Prevention Lifeline: 988 (US) or text 'HELLO' to 741741.",
+        "You matter. This feeling will pass, but you need support right now. Please talk to a mental health professional or someone you trust.",
+      ];
+    }
+  } else if (language === 'hi' && isDevanagari) {
+    // Hindi Devanagari responses
+    if (positive) {
+      options = [
+        "यह सुनकर बहुत खुशी हुई। इस अच्छाई को कैसे ज़्यादा दिनों तक बनाए रख सकते हो?",
+        "बहुत अच्छी बात है। ऐसा क्या हुआ जिससे ये सकारात्मक परिवर्तन आया?",
+        "तुम्हें गर्व होना चाहिए। तुम्हारे हिसाब से इसमें सबसे ज़रूरी चीज़ क्या थी?",
+        "बेहतरीन। क्या तुम इस भावना को अभी और भी गहराई से महसूस कर सकते हो?",
+      ];
+    } else if (distressed) {
+      options = [
+        "यह काफ़ी भारी लग रहा है। तुम अभी अकेले नहीं हो। सबसे तकलीफ़ देह बात कौन सी है?",
+        "समझ रही हूँ। यह भावना कब से तुम्हारे साथ है? क्या किसी ख़ास घटना के बाद शुरू हुआ?",
+        "मुझे बताओ, इस समय तुम्हारे अंदर कौन सी भावना सबसे ज़्यादा मजबूत है? दर्द, डर, या कुछ और?",
+        "ठीक है, हम इसे धीरे-धीरे समझते हैं। क्या तुम एक छोटी सी बात साझा कर सकते हो जो सबसे ज़्यादा दुख दे रही है?",
+      ];
+    } else {
+      options = [
+        "मैं समझ रही हूँ। तुम्हारे लिए इस बात का सबसे ज़्यादा मायने क्या है?",
+        "ठीक है, मैं सुन रही हूँ। बताओ, तुम्हारे अंदर अभी कौन सी भावना चल रही है?",
+        "मुझे थोड़ा और जानने दो। यह कब से चल रहा है और इसका तुम पर क्या असर हो रहा है?",
+        "हाँ, मैं यहाँ हूँ। इस समय तुम्हें क्या सबसे ज़्यादा परेशान कर रहा है?",
+      ];
+    }
+  } else if (language === 'hi') {
+    // Hindi Roman responses
+    if (positive) {
+      options = [
+        "Yeh sunke bahut khushi hui. Is achhaye ko kaise zyada dinon tak ban rakhe rakh sakte ho?",
+        "Bahut achi baat hai. Aisa kya hua jisse ye positive badlav aaya?",
+        "Tumhe garv hona chahiye. Tumhare hisaab se sabse important kya tha?",
+        "Behatreen. Isko aur bhi gahari nazar se dekh sakte ho?",
+      ];
+    } else if (distressed) {
+      options = [
+        "Yeh kaafi heavy lag raha hai. Tum akele nahi ho. Sabse bada dard kaun sa hai?",
+        "Samajh rahi hoon. Yeh feeling kab se? Kisi specific event ke baad shuru hua?",
+        "Mujhe batao, sabse strong emotion kaun sa hai? Dard, dar, ya stress?",
+        "Theek hai, dheere dheere samjhte hain. Sabse zyada dukh dene wali baat kya hai?",
+      ];
+    } else {
+      options = [
+        "Samajh rahi hoon. Is baat ka tumhare liye sabse zyada matlab kya hai?",
+        "Theek hai, mein sun rahi hoon. Batao, tumhare andar kaun si bhavna chal rahi hai?",
+        "Mujhe thoda or janne do. Yeh kab se chal raha hai aur iska tumpar kya asar pad raha hai?",
+        "Haan, main yahan hoon. Abhi tumhe kya sabse zyada pareshan kar raha hai?",
+      ];
+    }
+  } else {
+    // English responses
+    if (positive) {
+      options = [
+        "That's wonderful. What helped you feel this way today?",
+        "I'm so glad you're noticing this positive change. How can you hold onto this feeling?",
+        "That sounds like real progress. What part of it are you most proud of?",
+        "That's beautiful. What would help you feel this way more often?",
+      ];
+    } else if (distressed) {
+      options = [
+        "That sounds really hard. You're not alone in this. What hurts the most right now?",
+        "I hear the pain in what you're sharing. When did this start feeling so heavy?",
+        "Take a breath. What's the one thing that feels most overwhelming for you?",
+        "I'm listening and I care. Can you tell me the hardest part of what you're carrying?",
+        "It sounds like you're dealing with a lot. What emotion is strongest right now—sadness, fear, stress, or something else?",
+      ];
+    } else {
+      options = [
+        "I'm here and listening. What matters most to you about what you just shared?",
+        "Tell me more. How is that affecting you?",
+        "I'm listening. When did this feeling start?",
+        "What's the core of what you're experiencing right now?",
+        "Help me understand. What's the biggest challenge for you in this situation?",
+      ];
+    }
+  }
+  
+  // Rotate through options to avoid repetition
+  const recentReplies = new Set(history.slice(-10).filter(m => m.role === 'model').map(m => m.text));
+  const seed = [...message].reduce((sum, char) => sum + char.charCodeAt(0), history.length);
+  const randomIndex = seed % options.length;
+  
+  return options.slice(randomIndex).concat(options.slice(0, randomIndex))
+    .find(reply => !recentReplies.has(reply)) || options[randomIndex];
 }
 
 // --- Main Application Component ---
@@ -205,8 +298,17 @@ export default function MindScriptApp() {
   const [msgCountSinceAnalysis, setMsgCountSinceAnalysis] = useState(0);
   const [showGraph, setShowGraph] = useState(false);
   const [address, setAddress] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [autoSpeakReplies, setAutoSpeakReplies] = useState(true);
 
   const chatEndRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const voiceChunksRef = useRef([]);
+  const audioPlayerRef = useRef(null);
+  const audioUrlRef = useRef(null);
 
   // Auto-scroll
   useEffect(() => {
@@ -219,6 +321,7 @@ export default function MindScriptApp() {
     if (session) {
       setCurrentUser(session);
       setScoreHistory(getUserScores(session.email));
+      setChatHistory(getUserConversation(session.email));
     }
     setAuthChecked(true);
   }, []);
@@ -230,6 +333,7 @@ export default function MindScriptApp() {
     setCurrentUser(result.user);
     setSession(result.user);
     setScoreHistory(getUserScores(result.user.email));
+    setChatHistory(getUserConversation(result.user.email));
     navigate('/dashboard');
   };
 
@@ -239,10 +343,13 @@ export default function MindScriptApp() {
     setCurrentUser(result.user);
     setSession(result.user);
     setScoreHistory([]);
+    setChatHistory([]);
     navigate('/dashboard');
   };
 
   const handleLogout = () => {
+    stopVoiceRecording();
+    stopPlayingAudio();
     clearSession();
     setCurrentUser(null);
     setChatHistory([]);
@@ -250,6 +357,10 @@ export default function MindScriptApp() {
     setScoreHistory([]);
     setQuizAnswers({});
     setInputData({ type: '', content: '' });
+    setIsRecording(false);
+    setIsVoiceProcessing(false);
+    setIsSpeaking(false);
+    setAutoSpeakReplies(true);
     navigate('/');
   };
 
@@ -260,259 +371,295 @@ export default function MindScriptApp() {
     setScoreHistory(updated);
   };
 
-  // --- DIARY: Gemini scores immediately after diary is published ---
+  const persistChatHistory = (history) => {
+    setChatHistory(history);
+    if (currentUser?.email) {
+      saveUserConversation(currentUser.email, history);
+    }
+  };
+
+  const stopPlayingAudio = () => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.src = '';
+      audioPlayerRef.current = null;
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+  };
+
+  const speakReply = async (text) => {
+    if (!autoSpeakReplies || !text?.trim()) return;
+
+    setIsSpeaking(true);
+    try {
+      const audioBlob = await fetchSpeechAudio(text);
+      if (!audioBlob) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      stopPlayingAudio();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      audioUrlRef.current = audioUrl;
+      const audio = new Audio(audioUrl);
+      audioPlayerRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        if (audioUrlRef.current === audioUrl) {
+          audioUrlRef.current = null;
+        }
+        if (audioPlayerRef.current === audio) {
+          audioPlayerRef.current = null;
+        }
+        setIsSpeaking(false);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        if (audioUrlRef.current === audioUrl) {
+          audioUrlRef.current = null;
+        }
+        if (audioPlayerRef.current === audio) {
+          audioPlayerRef.current = null;
+        }
+        setIsSpeaking(false);
+      };
+      await audio.play();
+    } catch (error) {
+      console.error("Speech playback error:", error);
+      setIsSpeaking(false);
+    }
+  };
+
+  const sendChatMessage = async (messageText, options = {}) => {
+    const cleanText = messageText.trim();
+    if (!cleanText) return null;
+
+    const userMsg = {
+      role: 'user',
+      text: cleanText,
+      source: options.source || 'text',
+    };
+    const newHistory = [...chatHistory, userMsg];
+    persistChatHistory(newHistory);
+    setCurrentMessage('');
+    setIsLoading(true);
+
+    const botText = await fetchLocalChatReply(
+      cleanText,
+      newHistory,
+      mentalScore,
+      currentUser?.name
+    ) || buildOfflineChatReply(cleanText, newHistory);
+
+    const updatedHistory = [...newHistory, { role: 'model', text: botText }];
+    persistChatHistory(updatedHistory);
+
+    const newCount = msgCountSinceAnalysis + 1;
+    setMsgCountSinceAnalysis(newCount);
+
+    if (newCount >= 3) {
+      recalculateScore(updatedHistory);
+      setMsgCountSinceAnalysis(0);
+    }
+
+    setIsLoading(false);
+    void speakReply(botText);
+    return botText;
+  };
+
+  const cleanupVoiceStream = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+  };
+
+  const handleVoiceTranscript = async (blob) => {
+    setIsVoiceProcessing(true);
+    try {
+      const transcript = await transcribeVoiceBlob(blob);
+      const spokenText = transcript?.text?.trim();
+      if (!spokenText) {
+        persistChatHistory([
+          ...chatHistory,
+          {
+            role: 'model',
+            text: "I couldn't hear that clearly. Please try again a little closer to the mic.",
+          },
+        ]);
+        throw new Error("No speech detected");
+      }
+      await sendChatMessage(spokenText, { source: 'voice' });
+    } finally {
+      setIsVoiceProcessing(false);
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    if (isLoading || isVoiceProcessing || isRecording) return;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      console.error("Voice recording is not supported in this browser.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+      ];
+      const mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+      voiceChunksRef.current = [];
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          voiceChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const blob = new Blob(voiceChunksRef.current, {
+          type: recorder.mimeType || 'audio/webm',
+        });
+        voiceChunksRef.current = [];
+        cleanupVoiceStream();
+        setIsRecording(false);
+        try {
+          await handleVoiceTranscript(blob);
+        } catch (error) {
+          console.error("Voice transcription error:", error);
+        }
+      };
+
+      recorder.start();
+    } catch (error) {
+      console.error("Voice capture error:", error);
+      cleanupVoiceStream();
+      setIsRecording(false);
+    }
+  };
+
+  const toggleVoiceRecording = () => {
+    if (isRecording) {
+      stopVoiceRecording();
+    } else {
+      void startVoiceRecording();
+    }
+  };
+
+  const toggleAutoSpeakReplies = () => {
+    setAutoSpeakReplies(prev => {
+      const next = !prev;
+      if (!next) {
+        stopPlayingAudio();
+      }
+      return next;
+    });
+  };
+
+  // --- DIARY: local model scores immediately after diary is published ---
   const handleDiarySubmit = async () => {
     setIsLoading(true);
     navigate('/analyzing');
 
     try {
-      let score = 50;
+      let score = 0.5;
       let openingMessage = "Thank you for sharing. I'm here to listen. How are you feeling right now?";
       const content = inputData.content;
 
-      // Primary: Gemini for diary analysis
-      const prompt = `
-        You are MindScript, a compassionate mental health AI assistant.
-        Analyze this diary entry from a user:
-        "${content}"
-
-        Task:
-        1. Determine a Mental Health Score (0-100, where 100 is thriving and 0 is severe distress).
-        2. Write a short, empathetic opening message (2-3 sentences).
-
-        Output ONLY strict JSON:
-        { "score": number, "message": "string" }
-      `;
-
-      const result = await fetchGemini({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" }
-      });
-
-      const part = result?.candidates?.[0]?.content?.parts?.[0];
-      let parsed = null;
-      if (part?.json) parsed = part.json;
-      else if (part?.text) parsed = extractJsonFromText(part.text);
-
-      if (parsed && typeof parsed.score === 'number' && typeof parsed.message === 'string') {
-        score = parsed.score;
-        openingMessage = parsed.message;
+      const localResult = await fetchLocalModel(content);
+      if (localResult) {
+        score = localResult.score;
+        openingMessage = localResult.message;
       } else {
-        // Fallback 2: try custom model
-        const customResult = await fetchCustomModel(content);
-        if (customResult) {
-          score = customResult.score;
-          openingMessage = customResult.message;
-        } else {
-          // Fallback 3: offline keyword analysis
-          const offline = offlineAnalyze(content);
-          score = offline.score;
-          openingMessage = offline.message;
-        }
+        throw new Error("Local scoring backend unavailable");
       }
 
       setMentalScore(score);
       saveScore({ score, type: 'diary-initial' });
-      setChatHistory([{ role: 'model', text: openingMessage }]);
+      persistChatHistory([{ role: 'model', text: openingMessage }]);
       setMsgCountSinceAnalysis(0);
     } catch (err) {
       console.error("Diary analysis error:", err);
-      // Even on error, use offline analysis instead of hardcoded 50
-      const offline = offlineAnalyze(inputData.content);
-      setMentalScore(offline.score);
-      saveScore({ score: offline.score, type: 'diary-initial-offline' });
-      setChatHistory([{ role: 'model', text: offline.message }]);
+      const fallbackMessage = "I couldn't analyze that diary entry locally right now. Please try again once the backend is running.";
+      setMentalScore(0.5);
+      saveScore({ score: 0.5, type: 'diary-initial-offline' });
+      persistChatHistory([{ role: 'model', text: fallbackMessage }]);
     } finally {
       setIsLoading(false);
       navigate('/chat');
     }
   };
 
-  // --- QUIZ: Use custom model primarily, Gemini fallback ---
-  const handleQuizSubmit = async () => {
-    const formattedAnswers = Object.entries(quizAnswers)
-      .map(([index, score]) => `Q: ${ASSESSMENT_QUESTIONS[index]} Answer Score (0-4): ${score}`)
-      .join('\n');
+  // --- QUIZ: Use local model for scoring ---
+  const handleQuizSubmit = async (questionsUsed = null) => {
+    const questionsToUse = questionsUsed || ASSESSMENT_QUESTIONS;
+    const score = calculateQuizScore(quizAnswers);
+    const openingMessage = buildQuizSupportiveMessage(score);
 
-    setInputData({ type: 'quiz', content: formattedAnswers });
+    setInputData({
+      type: 'quiz',
+      content: JSON.stringify({
+        questions: questionsToUse,
+        answers: quizAnswers,
+        score,
+      }),
+    });
     setIsLoading(true);
     navigate('/analyzing');
 
     try {
-      let score = 50;
-      let openingMessage = "Thank you for completing the assessment. Let's talk about how you're doing.";
-
-      // Try custom model first for quiz
-      const customResult = await fetchCustomModel(formattedAnswers);
-
-      if (customResult) {
-        score = customResult.score;
-        openingMessage = customResult.message;
-      } else {
-        // Fallback to Gemini
-        const prompt = `
-          You are MindScript, a mental health AI assistant.
-          Analyze this wellness assessment from a user:
-          "${formattedAnswers}"
-
-          Task:
-          1. Determine a Mental Health Score from 0 (distress) to 100 (thriving).
-          2. Write a short, empathetic opening message (2-3 sentences).
-
-          Output ONLY strict JSON:
-          { "score": number, "message": "string" }
-        `;
-
-        const result = await fetchGemini({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json" }
-        });
-
-        const part = result?.candidates?.[0]?.content?.parts?.[0];
-        let parsed = null;
-        if (part?.json) parsed = part.json;
-        else if (part?.text) parsed = extractJsonFromText(part.text);
-
-        if (parsed && typeof parsed.score === 'number' && typeof parsed.message === 'string') {
-          score = parsed.score;
-          openingMessage = parsed.message;
-        } else {
-          // Fallback 3: offline - calculate from quiz answer scores directly
-          const totalScore = Object.values(quizAnswers).reduce((sum, v) => sum + v, 0);
-          const maxScore = Object.keys(quizAnswers).length * 4;
-          // Questions 0-4 are positive, 5-13 are negative
-          const posQs = [0, 1, 2, 3, 4];
-          const posSum = posQs.reduce((s, i) => s + (quizAnswers[i] || 0), 0);
-          const negSum = totalScore - posSum;
-          const posRatio = posSum / (posQs.length * 4);
-          const negRatio = negSum / ((Object.keys(quizAnswers).length - posQs.length) * 4);
-          score = Math.round(posRatio * 50 + (1 - negRatio) * 50);
-          score = Math.max(5, Math.min(95, score));
-          openingMessage = score > 60
-            ? "Based on your responses, it seems like you're doing reasonably well. Let's chat about how we can keep this positive momentum."
-            : "Your responses suggest you may be going through some challenges. I'm here to support you. Let's talk about what you're experiencing.";
-        }
-      }
-
       setMentalScore(score);
       saveScore({ score, type: 'quiz-initial' });
-      setChatHistory([{ role: 'model', text: openingMessage }]);
+      persistChatHistory([{ role: 'model', text: openingMessage }]);
       setMsgCountSinceAnalysis(0);
     } catch (err) {
-      console.error("Quiz analysis error:", err);
-      // Offline quiz scoring from answers
-      const totalScore = Object.values(quizAnswers).reduce((sum, v) => sum + v, 0);
-      const posQs = [0, 1, 2, 3, 4];
-      const posSum = posQs.reduce((s, i) => s + (quizAnswers[i] || 0), 0);
-      const negSum = totalScore - posSum;
-      const posRatio = posSum / (posQs.length * 4);
-      const negRatio = negSum / ((Object.keys(quizAnswers).length - posQs.length) * 4);
-      const offScore = Math.max(5, Math.min(95, Math.round(posRatio * 50 + (1 - negRatio) * 50)));
-      setMentalScore(offScore);
-      saveScore({ score: offScore, type: 'quiz-initial-offline' });
-      setChatHistory([{ role: 'model', text: "Thank you for the assessment. Let's talk about how you're feeling." }]);
+      console.error('Quiz scoring error:', err);
+      const fallbackScore = 0.5;
+      setMentalScore(fallbackScore);
+      saveScore({ score: fallbackScore, type: 'quiz-initial-offline' });
+      persistChatHistory([{ role: 'model', text: "I couldn't process that assessment right now. Please try again in a moment." }]);
     } finally {
       setIsLoading(false);
       navigate('/chat');
     }
   };
 
-  // --- CHAT: Gemini primary, custom model fallback if slow/offline ---
+  // --- CHAT: local LLM replies, local model for score updates ---
   const handleSendMessage = async () => {
     if (!currentMessage.trim()) return;
-
-    const userMsg = { role: 'user', text: currentMessage };
-    const newHistory = [...chatHistory, userMsg];
-    setChatHistory(newHistory);
-    setCurrentMessage('');
-    setIsLoading(true);
-
-    const context = newHistory.slice(-10).map(m =>
-      `${m.role === 'user' ? 'User' : 'MindScript'}: ${m.text}`
-    ).join('\n');
-
-    const prompt = `
-      You are MindScript, a supportive AI companion for mental wellness.
-      Current Mental Health Score: ${mentalScore ?? 'unknown'} (0-100).
-      User's name: ${currentUser?.name || 'Friend'}
-
-      Recent conversation:
-      ${context}
-
-      Reply as MindScript. Keep it empathetic, supportive, and concise (2-3 sentences max).
-      Address the user by name occasionally.
-    `;
-
-    // Try Gemini first
-    let botText = null;
-    const geminiResult = await fetchGemini({
-      contents: [{ parts: [{ text: prompt }] }]
-    });
-
-    if (geminiResult?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      botText = geminiResult.candidates[0].content.parts[0].text;
-    }
-
-    // Fallback 2: custom model if Gemini failed
-    if (!botText) {
-      const modelResult = await fetchCustomModel(currentMessage);
-      if (modelResult?.message) {
-        botText = modelResult.message;
-      }
-    }
-
-    // Fallback 3: offline keyword-based reply
-    if (!botText) {
-      botText = offlineChatReply(currentMessage, currentUser?.name);
-    }
-
-    setChatHistory(prev => [...prev, { role: 'model', text: botText }]);
-
-    const newCount = msgCountSinceAnalysis + 1;
-    setMsgCountSinceAnalysis(newCount);
-
-    // Update score after every 3 chat messages
-    if (newCount >= 3) {
-      recalculateScore([...newHistory, { role: 'model', text: botText }]);
-      setMsgCountSinceAnalysis(0);
-    }
-
-    setIsLoading(false);
+    await sendChatMessage(currentMessage, { source: 'text' });
   };
 
   const recalculateScore = async (history) => {
     const context = history.slice(-10).map(m =>
       `${m.role === 'user' ? 'User' : 'MindScript'}: ${m.text}`
     ).join('\n');
-
-    const prompt = `
-      Analyze the recent conversation context below.
-      Re-evaluate the user's Mental Health Score (0-100).
-      Return ONLY valid JSON: { "score": number }
-
-      Context:
-      ${context}
-    `;
-
-    const result = await fetchGemini({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json" }
-    });
-
-    if (result?.candidates?.[0]?.content?.parts?.[0]) {
-      const part = result.candidates[0].content.parts[0];
-      const parsed = part.json || extractJsonFromText(part.text);
-      if (parsed && typeof parsed.score === 'number') {
-        setMentalScore(parsed.score);
-        saveScore({ score: parsed.score, type: 'chat-update' });
-        return;
+    try {
+      const localResult = await fetchLocalModel(context);
+      if (localResult && typeof localResult.score === 'number') {
+        setMentalScore(localResult.score);
+        saveScore({ score: localResult.score, type: 'chat-update' });
       }
+    } catch (error) {
+      console.error("Chat score recalculation error:", error);
     }
-
-    // Offline fallback: recalculate from keywords
-    const offScore = offlineRecalculateScore(history, mentalScore);
-    setMentalScore(offScore);
-    saveScore({ score: offScore, type: 'chat-update-offline' });
   };
 
   const findProfessionals = () => {
@@ -523,11 +670,11 @@ export default function MindScriptApp() {
 
   // Quick chat without diary/quiz
   const startQuickChat = () => {
-    setChatHistory([{
+    persistChatHistory([{
       role: 'model',
       text: `Hey ${currentUser?.name || 'there'}! I'm MindScript, your wellness companion. How are you feeling today?`
     }]);
-    setMentalScore(scoreHistory.length > 0 ? scoreHistory[scoreHistory.length - 1].score : 50);
+    setMentalScore(scoreHistory.length > 0 ? scoreHistory[scoreHistory.length - 1].score : 0.5);
     setMsgCountSinceAnalysis(0);
     navigate('/chat');
   };
@@ -612,6 +759,12 @@ export default function MindScriptApp() {
             setCurrentMessage={setCurrentMessage}
             handleSendMessage={handleSendMessage}
             isLoading={isLoading}
+            isRecording={isRecording}
+            isVoiceProcessing={isVoiceProcessing}
+            isSpeaking={isSpeaking}
+            autoSpeakReplies={autoSpeakReplies}
+            onToggleVoiceRecording={toggleVoiceRecording}
+            onToggleAutoSpeak={toggleAutoSpeakReplies}
             mentalScore={mentalScore}
             showGraph={showGraph}
             setShowGraph={setShowGraph}

@@ -8,9 +8,9 @@ const LOADING_QUOTES = [
   "Processing with care...",
 ];
 
-const LoadingSpinner = () => {
-  const quote = LOADING_QUOTES[Math.floor(Math.random() * LOADING_QUOTES.length)];
+const LOADING_QUOTE = LOADING_QUOTES[Math.floor(Math.random() * LOADING_QUOTES.length)];
 
+const LoadingSpinner = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center animate-fade-in relative">
       {/* Background glow */}
@@ -29,7 +29,7 @@ const LoadingSpinner = () => {
       </div>
 
       <h2 className="text-2xl font-bold text-ms-text mb-2 animate-pulse">Analyzing...</h2>
-      <p className="text-ms-muted text-sm mb-6">{quote}</p>
+      <p className="text-ms-muted text-sm mb-6">{LOADING_QUOTE}</p>
 
       {/* Progress dots */}
       <div className="flex gap-2">

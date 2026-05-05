@@ -10,12 +10,20 @@
 [![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=flat-square&logo=vite)](https://vite.dev/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind-3-38BDF8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Python-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![Gemini AI](https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?style=flat-square&logo=google)](https://ai.google.dev/)
+[![Ollama](https://img.shields.io/badge/Ollama-Local-3C3C3C?style=flat-square&logo=ollama)](https://ollama.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 > **MindScript** is a full-stack AI-powered mental wellness application that combines clinical-grade sentiment analysis, conversational AI therapy support, and evidence-based mood tracking — all wrapped in a cinematic, premium dark interface designed to make users feel safe, calm, and heard.
 
 </div>
+
+### Recent Updates
+
+- Added local voice chat with browser microphone input
+- Added local Whisper transcription for speech-to-text
+- Added local/system text-to-speech for spoken replies
+- Kept chat generation on Ollama and scoring on the existing FastAPI ML backend
+- Persisted chat conversations per user in localStorage alongside score history
 
 ---
 
@@ -50,7 +58,7 @@ The vision behind MindScript is simple: **make mental wellness accessible, non-j
 - Tracking emotional patterns over time gives users genuine insight into their wellbeing
 - Beautiful, calming design is not cosmetic — it is *therapeutic*
 
-MindScript gives users three pathways to interact: a **free-form diary**, a structured **PHQ-adapted assessment quiz**, and an open **AI chat**. Each session produces a 0–100 mental wellness score, which is logged and visualized over time.
+MindScript gives users three pathways to interact: a **free-form diary**, a structured **PHQ-adapted assessment quiz**, and an open **AI chat**. Each session produces a `0.00–1.00` mental wellness score, which is logged and visualized over time.
 
 ---
 
@@ -68,9 +76,19 @@ MindScript draws from established clinical frameworks:
 | **Logistic Regression on NLP features** | Custom-trained ML model in the Python backend (`diary_backend/`) |
 | **Cognitive Behavioural Therapy (CBT) principles** | AI prompt engineering is structured around CBT-style empathetic reflection rather than advice-giving |
 
+### Dataset Used
+
+The scoring model is trained from the local CSV in `diary_backend/`:
+
+| Dataset | Purpose |
+|---|---|
+| `depression_dataset_reddit_cleaned (1).csv` | Training data for the TF-IDF + Logistic Regression mental wellness classifier |
+
+The training script in [`train_model.py`](diary_backend/train_model.py) normalizes text, fits a TF-IDF vectorizer, trains a soft-voting classifier, and saves the model artifacts as `.pkl` files.
+
 ### AI Prompt Engineering
 
-The Gemini AI is prompted specifically as a **CBT-informed companion** — it reflects, validates, and gently probes rather than diagnosing or prescribing. Every system prompt is designed around:
+Gemini is used first when `GOOGLE_API_KEY` is configured, with local Ollama as the fallback. Both paths are prompted as **CBT-informed companions** — they reflect, validate, and gently probe rather than diagnosing or prescribing. Every system prompt is designed around:
 
 - **Unconditional positive regard** (Carl Rogers, Person-Centered Therapy)
 - **Motivational interviewing** techniques
@@ -78,15 +96,15 @@ The Gemini AI is prompted specifically as a **CBT-informed companion** — it re
 
 ### Scoring Methodology
 
-The mental wellness score (0–100) works as follows:
+The mental wellness score (`0.00–1.00`) works as follows:
 
 ```
-Score ≥ 70  →  Thriving     (Emerald color band)
-Score 41–69 →  Coping       (Amber color band)
-Score ≤ 40  →  Needs Care   (Rose color band)
+Score ≥ 0.70  →  Thriving     (Emerald color band)
+Score 0.41–0.69 → Coping      (Amber color band)
+Score ≤ 0.40  →  Needs Care   (Rose color band)
 ```
 
-The score is recalculated **every 3 chat messages** using a sliding window of the last 10 exchanges, meaning it responds dynamically to how the conversation evolves.
+The score is recalculated **every 3 chat messages** using a sliding window of the last 10 exchanges, meaning it responds dynamically to how the conversation evolves. The same scoring pipeline is used for diary and quiz submissions, then saved locally so the dashboard can chart trends over time.
 
 ---
 
@@ -129,8 +147,9 @@ MindScript uses three cinematic photographic backgrounds, each chosen for specif
 ### Core Features
 - 📓 **AI Diary Analysis** — Write freely; the AI reads the emotional subtext
 - 📋 **Structured Wellness Assessment** — 14-question PHQ/GAD-adapted quiz with progress tracking
-- 💬 **Real-time AI Chat** — Conversational mental wellness support powered by Gemini 2.5 Flash
-- 📈 **Wellness Score Tracking** — Dynamic 0–100 score with historical line chart visualization
+- 💬 **Real-time AI Chat** — Conversational mental wellness support powered by Gemini first, then local Ollama fallback
+- 🎙️ **Voice Chat Mode** — Record speech in the browser, transcribe with Google first, then local Whisper fallback, and speak replies back
+- 📈 **Wellness Score Tracking** — Dynamic `0.00–1.00` score with historical line chart visualization
 - 🔍 **Find Professionals** — Embedded Google Maps search for mental health professionals near you
 
 ### Authentication
@@ -145,11 +164,14 @@ MindScript uses three cinematic photographic backgrounds, each chosen for specif
 - 📱 Fully **responsive** — works on mobile, tablet, and desktop
 - ♿ Accessible — semantic HTML, ARIA labels, keyboard navigable
 
-### AI Resilience (3-layer fallback)
-If Gemini API is unavailable, the app **never breaks**:
-1. **Gemini 2.5 Flash** (primary)
-2. **Custom Python ML model** (FastAPI on `localhost:8000`)
-3. **Offline keyword analysis engine** (always available, zero network dependency)
+### AI Resilience
+The app tries higher quality Google services first when an API key is present, then falls back locally:
+1. **Gemini** for chat replies and audio transcription
+2. **Google Text-to-Speech** for spoken replies
+3. **Ollama local LLM** if Gemini is unavailable, rate-limited, or not configured
+4. **Custom Python ML model** (FastAPI on `localhost:8000`) for diary, quiz, and chat scoring
+5. **Local Whisper + system TTS** if Google voice APIs are unavailable
+6. **Minimal varied fallback replies** if every chat model is unavailable
 
 ---
 
@@ -180,7 +202,7 @@ If Gemini API is unavailable, the app **never breaks**:
 
 | Service | Usage |
 |---|---|
-| **Google Gemini 2.5 Flash** | Primary diary analysis, chat responses, score recalculation |
+| **Ollama local model** | Primary chat reply engine |
 | **Google Maps Search** | "Find professionals near me" feature |
 
 ### Dev Tooling
@@ -204,7 +226,7 @@ MindScript-project-main/
 ├── 📄 postcss.config.cjs          # PostCSS pipeline (Tailwind + Autoprefixer)
 ├── 📄 eslint.config.js            # Linting rules
 ├── 📄 .gitignore                  # Excludes node_modules, dist, .env, secrets
-├── 📄 .env                        # ⚠️ NOT committed — contains VITE_GEMINI_API_KEY
+├── 📄 .env                        # ⚠️ NOT committed — optional Ollama override
 │
 ├── 📁 public/                     # Static assets (served at root URL)
 │   ├── mindscript-icon.png        # App icon / favicon (brain illustration)
@@ -229,7 +251,7 @@ MindScript-project-main/
 │   │   ├── InputSelectPage.jsx    # /input-select — Choose between diary or quiz
 │   │   ├── DiaryPage.jsx          # /diary — Free-text diary entry form
 │   │   ├── QuizPage.jsx           # /quiz — 14-question wellness assessment
-│   │   └── ChatPage.jsx           # /chat — AI conversation, score display, graph modal
+│   │   └── ChatPage.jsx           # /chat — AI conversation, voice mode, score display, graph modal
 │   │
 │   ├── 📁 components/             # Reusable sub-components
 │   │   ├── MindfulBackground.jsx  # 🌌 Animated cinematic background system (crossfade + particles)
@@ -238,10 +260,11 @@ MindScript-project-main/
 │   │   └── AuthErrorScreen.jsx    # Auth failure fallback UI
 │   │
 │   └── 📁 utils/
-│       └── auth.js                # Auth helpers: registerUser, loginUser, getSession, clearSession
+│       └── auth.js                # Auth helpers: registerUser, loginUser, sessions, score + chat persistence
 │
-└── 📁 diary_backend/              # Python AI/ML backend (optional but recommended)
-    ├── server.py                  # FastAPI app — /analyze-diary endpoint
+└── 📁 diary_backend/              # Python AI/ML backend (required for scoring + voice)
+    ├── server.py                  # FastAPI app — /analyze-diary, /chat, /transcribe-audio, /speak
+    ├── requirements.txt           # Backend dependency list
     ├── logistic_regression_model.pkl  # Trained LR model binary
     ├── tfidf_vectorizer.pkl           # TF-IDF feature extractor binary
     └── __pycache__/               # Python bytecode cache
@@ -268,28 +291,24 @@ User Input (Diary / Quiz / Chat)
           │
           ▼
 ┌─────────────────────────────────┐
-│   Layer 1: Google Gemini 2.5    │  ← Primary (JSON structured output)
-│   Flash API                     │
-└────────────┬────────────────────┘
-             │ fail / timeout (15s)
-             ▼
-┌─────────────────────────────────┐
-│   Layer 2: Python FastAPI       │  ← localhost:8000/analyze-diary
-│   ML Backend (TF-IDF + LR)     │    TF-IDF vectorization → Logistic Regression
-└────────────┬────────────────────┘
-             │ unreachable / fail (8s)
-             ▼
-┌─────────────────────────────────┐
-│   Layer 3: Offline Keyword      │  ← Always available, zero network
-│   Analysis Engine               │    50+ negative keywords, 40+ positive keywords
-│                                 │    Severe crisis word detection
-└─────────────────────────────────┘
-          │
-          ▼
-    Mental Wellness Score (0–100) + Empathetic Message
-          │
-          ▼
-    Chat Session Begins — Score recalculated every 3 messages
+│ Diary / Quiz / Chat input path   │
+└────────────┬─────────────────────┘
+             │
+             ├─────────────────────────────────────────────┐
+             │                                             │
+             ▼                                             ▼
+┌─────────────────────────────────┐         ┌─────────────────────────────────┐
+│ Layer 1: Ollama local model     │         │ Layer 2: Python FastAPI ML      │
+│ on localhost:11434              │         │ backend on localhost:8000       │
+│ Generates chat replies          │         │ TF-IDF + Logistic Regression    │
+└────────────┬────────────────────┘         └────────────┬────────────────────┘
+             │                                             │
+             ▼                                             ▼
+┌─────────────────────────────────┐         ┌─────────────────────────────────┐
+│ Voice path                      │         │ Score updates + persistence     │
+│ Mic -> Whisper -> Ollama reply  │         │ Every 3 chat turns, score saved  │
+│ -> local/system TTS             │         │ per user in localStorage         │
+└─────────────────────────────────┘         └─────────────────────────────────┘
 ```
 
 ### Scoring Logic (Offline Fallback)
@@ -343,7 +362,15 @@ The `MindfulBackground` component (`src/components/MindfulBackground.jsx`) is a 
 
 ## ⚙️ Running the Backend
 
-The Python backend is **optional** — the app works fully without it via Gemini + offline fallback. But running it gives you a local ML model as an additional layer.
+The Python backend is required for score analysis. Chat and voice use Google first when `GOOGLE_API_KEY` is set, then local Ollama, Whisper, and system TTS when the API key is missing, rate-limited, or unavailable.
+For local voice fallback, `ffmpeg` should be available on the machine.
+Conversation history is stored locally per user, and score updates still happen from the same chat context.
+
+Before starting the backend, install Ollama and pull a model:
+
+```bash
+ollama pull qwen2.5
+```
 
 **Terminal 1 — Python Backend:**
 
@@ -352,16 +379,19 @@ The Python backend is **optional** — the app works fully without it via Gemini
 cd MindScript-project-main/diary_backend
 
 # Install dependencies (one-time)
-pip install fastapi uvicorn joblib scikit-learn pydantic
+python3 -m pip install -r requirements.txt
 
 # Start the server
-uvicorn server:app --reload --port 8000
+python3 -m uvicorn server:app --reload --port 8000
 ```
 
 The backend will start at: **http://localhost:8000**
 
 Available endpoints:
-- `POST /analyze-diary` — Accepts `{ "text": "..." }`, returns `{ "score": int, "message": str, "probability": float, "level": str }`
+- `POST /analyze-diary` — Accepts `{ "text": "..." }`, returns `{ "score": float, "message": str, "probability": float, "level": str }`
+- `POST /chat` — Accepts `{ "message": "...", "history": [...], "user_name": "...", "mental_score": 0.74 }` and returns a Google/Ollama/fallback reply
+- `POST /transcribe-audio` — Accepts an uploaded audio file and returns Google or local Whisper transcription
+- `POST /speak` — Returns Google or locally synthesized WAV audio for assistant replies
 
 **Health check:**
 ```bash
@@ -382,7 +412,7 @@ cd MindScript-project-main
 npm install
 
 # Create your environment file (see below)
-cp .env.example .env   # Then edit .env with your key
+cp .env.example .env   # Then edit .env if you want to override local defaults
 
 # Start development server
 npm run dev
@@ -402,18 +432,34 @@ npm run lint     # Run ESLint checks
 
 ## 🔑 Environment Variables
 
-Create a `.env` file in `MindScript-project-main/`:
+Create a `.env` file in `MindScript-project-main/`. Add a Google API key if you want the app to use Google first:
 
 ```env
-# .env — NEVER commit this file to git
-VITE_GEMINI_API_KEY=your_google_gemini_api_key_here
+# Primary Google path. Leave blank to use local fallbacks only.
+GOOGLE_API_KEY=your_google_api_key_here
+GOOGLE_CHAT_MODEL=gemini-1.5-flash
+GOOGLE_TTS_HI_LANGUAGE=hi-IN
+GOOGLE_TTS_HI_VOICE=hi-IN-Wavenet-D
+GOOGLE_TTS_EN_LANGUAGE=en-US
+GOOGLE_TTS_EN_VOICE=en-US-Wavenet-F
+GOOGLE_TTS_SPEAKING_RATE=0.95
+
+# Local fallback chat backend
+OLLAMA_URL=http://localhost:11434/api/chat
+OLLAMA_MODEL=qwen2.5
+
+# Local fallback voice settings
+WHISPER_MODEL=small
+WHISPER_ALLOWED_LANGUAGES=hi,en
+WHISPER_PREFERRED_LANGUAGE=auto
+TTS_VOICE=Samantha
+TTS_VOICE_HI=
+TTS_VOICE_EN=Samantha
 ```
 
-Get your free Gemini API key at: [aistudio.google.com](https://aistudio.google.com/apikey)
+> ⚠️ The `.env` file is listed in `.gitignore` and will **never** be committed to the repository. Your Google API key stays local only.
 
-> ⚠️ The `.env` file is listed in `.gitignore` and will **never** be committed to the repository. Your API key stays local only.
-
-**Note:** Even without a key, the app is functional — it falls through to the custom ML backend and offline keyword engine automatically.
+**Note:** Scoring uses the local FastAPI model and returns `0.00–1.00`, where `0` means stronger depression/needs-support signal and `1` means stronger wellbeing signal.
 
 ---
 
@@ -450,7 +496,7 @@ App Start
 | `/diary` | `DiaryPage` | Aurora 🌌 | Free-text diary entry |
 | `/quiz` | `QuizPage` | Cosmos 🌌 | 14-question assessment |
 | `/analyzing` | `LoadingSpinner` | Dark | AI processing indicator |
-| `/chat` | `ChatPage` | Cosmos 🌌 | AI conversation + score tracking |
+| `/chat` | `ChatPage` | Cosmos 🌌 | AI conversation + voice mode + score tracking |
 
 ---
 

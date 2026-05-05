@@ -3,7 +3,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
 import {
-  Activity, Send, Smile, Frown, Sparkles, RefreshCw, X, ArrowLeft, Heart, Shield
+  Activity, Send, Smile, Frown, Sparkles, RefreshCw, X, ArrowLeft, Heart, Shield,
+  Mic, MicOff, Volume2, VolumeX, Loader2
 } from "lucide-react";
 import MindfulBackground from '../components/MindfulBackground';
 
@@ -21,6 +22,12 @@ const ChatPage = ({
   setCurrentMessage,
   handleSendMessage,
   isLoading,
+  isRecording,
+  isVoiceProcessing,
+  isSpeaking,
+  autoSpeakReplies,
+  onToggleVoiceRecording,
+  onToggleAutoSpeak,
   mentalScore,
   showGraph,
   setShowGraph,
@@ -34,15 +41,12 @@ const ChatPage = ({
 }) => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory]);
+  }, [chatHistory, chatEndRef]);
 
   const [canRenderChart, setCanRenderChart] = useState(false);
   useEffect(() => {
-    if (showGraph) {
-      requestAnimationFrame(() => setCanRenderChart(true));
-    } else {
-      setCanRenderChart(false);
-    }
+    const frame = requestAnimationFrame(() => setCanRenderChart(showGraph));
+    return () => cancelAnimationFrame(frame);
   }, [showGraph]);
 
   // Rotating encouragement for the input area
@@ -53,22 +57,24 @@ const ChatPage = ({
   }, []);
 
   const getScoreColor = (s) => {
-    if (s > 70) return "text-emerald-400";
-    if (s > 40) return "text-ms-accent";
+    if (s > 0.7) return "text-emerald-400";
+    if (s > 0.4) return "text-ms-accent";
     return "text-ms-secondary";
   };
 
   const getScoreDot = (s) => {
-    if (s > 70) return "bg-emerald-400";
-    if (s > 40) return "bg-ms-accent";
+    if (s > 0.7) return "bg-emerald-400";
+    if (s > 0.4) return "bg-ms-accent";
     return "bg-ms-secondary";
   };
 
   const getScoreLabel = (s) => {
-    if (s > 70) return "Doing Well";
-    if (s > 40) return "Moderate";
+    if (s > 0.7) return "Doing Well";
+    if (s > 0.4) return "Moderate";
     return "Needs Support";
   };
+
+  const formatScore = (s) => Number(s).toFixed(2);
 
   return (
     <div className="flex flex-col h-screen animate-fade-in relative">
@@ -95,7 +101,7 @@ const ChatPage = ({
               <div className="flex items-center gap-2 mt-0.5">
                 <span className={`w-2 h-2 rounded-full ${getScoreDot(mentalScore)} animate-pulse`}></span>
                 <span className={`text-xs ${getScoreColor(mentalScore)}`}>
-                  {mentalScore} - {getScoreLabel(mentalScore)}
+                  {getScoreLabel(mentalScore)}
                 </span>
               </div>
             )}
@@ -148,7 +154,7 @@ const ChatPage = ({
                         axisLine={{ stroke: 'rgba(255,255,255,0.05)' }}
                         tickLine={false}
                       />
-                      <YAxis domain={[0, 100]} tick={{ fill: '#8888aa', fontSize: 12 }}
+                      <YAxis domain={[0, 1]} tick={{ fill: '#8888aa', fontSize: 12 }}
                         axisLine={{ stroke: 'rgba(255,255,255,0.05)' }} tickLine={false} />
                       <Tooltip
                         labelFormatter={(l) => new Date(l).toLocaleString()}
@@ -175,13 +181,13 @@ const ChatPage = ({
 
             {/* Recommendations */}
             <div className="mt-6 pt-6 border-t border-white/5">
-              {mentalScore >= 70 ? (
+              {mentalScore >= 0.7 ? (
                 <div className="rounded-xl p-4 text-center animate-pop-in" style={{ background: 'rgba(16,185,129,0.08)' }}>
                   <Smile className="w-8 h-8 text-emerald-400 mx-auto mb-2 animate-bounce-small" />
                   <p className="text-ms-text text-sm font-medium">"Happiness is not something ready made. It comes from your own actions."</p>
                   <p className="text-ms-muted text-xs mt-1">- Dalai Lama</p>
                 </div>
-              ) : mentalScore <= 40 ? (
+              ) : mentalScore <= 0.4 ? (
                 <div className="rounded-xl p-4 animate-pop-in" style={{ background: 'rgba(244,63,94,0.08)' }}>
                   <div className="flex items-center gap-2 mb-2 justify-center text-ms-secondary">
                     <Shield className="w-5 h-5" />
@@ -277,12 +283,30 @@ const ChatPage = ({
           {ENCOURAGEMENTS[encourageIdx]}
         </p>
         <div className="flex items-center gap-3 max-w-3xl mx-auto">
+          <button
+            onClick={onToggleVoiceRecording}
+            disabled={isLoading || isVoiceProcessing}
+            className={`p-3 rounded-xl text-white transition-all duration-300 disabled:opacity-30 hover:scale-[1.05] active:scale-95 ${isRecording ? "animate-pulse" : ""}`}
+            style={{ background: isRecording ? 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)' : 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)' }}
+            title={isRecording ? "Stop recording" : "Record voice"}
+          >
+            {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
+          </button>
+          <button
+            onClick={onToggleAutoSpeak}
+            disabled={isLoading || isVoiceProcessing}
+            className="p-3 rounded-xl text-white transition-all duration-300 disabled:opacity-30 hover:scale-[1.05] active:scale-95"
+            style={{ background: autoSpeakReplies ? 'linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%)' : 'linear-gradient(135deg, #334155 0%, #475569 100%)' }}
+            title={autoSpeakReplies ? "Turn off spoken replies" : "Turn on spoken replies"}
+          >
+            {autoSpeakReplies ? <Volume2 size={20} /> : <VolumeX size={20} />}
+          </button>
           <input
             type="text"
             value={currentMessage}
             onChange={(e) => setCurrentMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !isLoading && handleSendMessage()}
-            placeholder="Type your message..."
+            placeholder="Type your message or use voice..."
             className="input-field flex-1 py-3"
           />
           <button
@@ -290,10 +314,20 @@ const ChatPage = ({
             disabled={!currentMessage.trim() || isLoading}
             className="p-3 rounded-xl text-white transition-all duration-300 disabled:opacity-30 hover:scale-[1.05] active:scale-95"
             style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%)' }}
-          >
+            >
             <Send size={20} />
           </button>
         </div>
+        {(isRecording || isVoiceProcessing || isSpeaking) && (
+          <div className="flex items-center justify-center gap-2 mt-2 text-xs text-ms-muted">
+            <Loader2 className={`w-3.5 h-3.5 ${isRecording || isVoiceProcessing ? "animate-spin" : ""}`} />
+            <span>
+              {isRecording && "Recording voice... tap mic to stop"}
+              {!isRecording && isVoiceProcessing && "Transcribing voice..."}
+              {!isRecording && !isVoiceProcessing && isSpeaking && "Speaking reply..."}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
