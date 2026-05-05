@@ -466,7 +466,9 @@ export default function MindScriptApp() {
     }
 
     setIsLoading(false);
-    void speakReply(botText);
+    if (options.source === 'voice') {
+      void speakReply(botText);
+    }
     return botText;
   };
 
