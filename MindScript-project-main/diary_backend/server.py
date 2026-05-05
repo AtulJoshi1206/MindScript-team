@@ -161,24 +161,31 @@ def adjust_wellness_score(text: str, score: float) -> float:
         (r"\boverdose\b", 0.18),
         (r"\bhopeless\b", 0.12),
         (r"\bworthless\b", 0.12),
-        (r"\bsad\b", 0.08),
-        (r"\bcry\b", 0.08),
+        (r"\bdepress(ed|ing)?\b", 0.15),
+        (r"\bsad(ness)?\b", 0.12),
+        (r"\bcry(ing)?\b", 0.08),
         (r"\banxious\b", 0.08),
         (r"\bpanic\b", 0.10),
         (r"\balone\b", 0.06),
         (r"\bnumb\b", 0.08),
         (r"\bempty\b", 0.08),
+        (r"\bdukhi\b", 0.12),
+        (r"\bpareshan\b", 0.10),
     ]
 
     bonus = sum(weight for pattern, weight in positive_markers if re.search(pattern, lower))
     penalty = sum(weight for pattern, weight in negative_markers if re.search(pattern, lower))
 
-    if bonus >= 0.24 and penalty <= 0.04:
-        return max(score, 0.75)
-    if bonus >= 0.16 and penalty <= 0.04:
-        return max(score, 0.65)
+    # Overrides to fix unreliable ML base score for obvious entries
+    if penalty >= 0.08 and bonus < 0.05:
+        # Clear distress: ensure the score stays in 'Needs Support' (Red) range
+        return clamp_score(min(score - penalty, 0.30))
+        
+    if bonus >= 0.08 and penalty < 0.05:
+        # Clear positive: ensure the score is in 'Thriving' (Green) range
+        return clamp_score(max(score + bonus, 0.75))
 
-    adjusted = score + min(0.25, bonus) - min(0.20, penalty)
+    adjusted = score + min(0.30, bonus) - min(0.30, penalty)
     return clamp_score(adjusted)
 
 def run_model_on_text(text: str) -> dict:
