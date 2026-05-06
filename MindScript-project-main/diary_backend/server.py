@@ -928,8 +928,17 @@ async def transcribe_audio(file: UploadFile = File(...)):
 
         result = transcribe_audio_file_with_google(temp_path, file.content_type)
         if result is None:
-            result = transcribe_audio_file(temp_path)
-            result["source"] = "local"
+            try:
+                result = transcribe_audio_file(temp_path)
+                result["source"] = "local"
+            except FileNotFoundError as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail="FFmpeg is not installed. Please install FFmpeg to use audio transcription. "
+                           "On Windows: choco install ffmpeg or download from https://ffmpeg.org/download.html"
+                )
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Audio transcription failed: {str(e)}")
         if not result["text"]:
             raise HTTPException(status_code=400, detail="No speech detected in audio")
 
