@@ -44,6 +44,7 @@ WHISPER_ALLOWED_LANGUAGES = [
 ]
 WHISPER_PREFERRED_LANGUAGE = os.getenv("WHISPER_PREFERRED_LANGUAGE", "auto").strip().lower()
 WHISPER_DISABLE_FALLBACK = os.getenv("WHISPER_DISABLE_FALLBACK", "false").strip().lower() in ("true", "1", "yes")
+TTS_DISABLE_FALLBACK = os.getenv("TTS_DISABLE_FALLBACK", "false").strip().lower() in ("true", "1", "yes")
 TTS_VOICE = os.getenv("TTS_VOICE", "").strip() or None
 TTS_VOICE_HI = os.getenv("TTS_VOICE_HI", "").strip() or TTS_VOICE
 TTS_VOICE_EN = os.getenv("TTS_VOICE_EN", "").strip() or TTS_VOICE
@@ -807,22 +808,30 @@ def synthesize_tts_audio(text: str, voice: Optional[str] = None) -> bytes:
             engine.save_to_file(clean_text, str(aiff_path))
             engine.runAndWait()
 
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                str(aiff_path),
-                "-ar",
-                "22050",
-                "-ac",
-                "1",
-                str(wav_path),
-            ],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    str(aiff_path),
+                    "-ar",
+                    "22050",
+                    "-ac",
+                    "1",
+                    str(wav_path),
+                ],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            raise RuntimeError(
+                "FFmpeg is not installed or failed. To use local TTS on Windows: "
+                "1) Install FFmpeg: choco install ffmpeg (via Chocolatey) or download from https://ffmpeg.org/download.html "
+                "2) Restart the backend server. \n"
+                "Or set TTS_DISABLE_FALLBACK=true in .env to use only Google Text-to-Speech API (requires GOOGLE_API_KEY)."
+            ) from e
 
         return wav_path.read_bytes()
 
@@ -970,7 +979,15 @@ def speak(req: SpeakRequest):
     try:
         audio_bytes = synthesize_tts_audio_with_google(req.text)
         if audio_bytes is None:
+            if TTS_DISABLE_FALLBACK:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Google Text-to-Speech API is not available or failed. "
+                           "Local TTS fallback is disabled. Please ensure GOOGLE_API_KEY is set and valid."
+                )
             audio_bytes = synthesize_tts_audio(req.text, req.voice)
+        if audio_bytes is None:
+            raise HTTPException(status_code=500, detail="TTS synthesis failed - no audio generated")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except RuntimeError as exc:
