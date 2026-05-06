@@ -43,6 +43,7 @@ WHISPER_ALLOWED_LANGUAGES = [
     if item.strip()
 ]
 WHISPER_PREFERRED_LANGUAGE = os.getenv("WHISPER_PREFERRED_LANGUAGE", "auto").strip().lower()
+WHISPER_DISABLE_FALLBACK = os.getenv("WHISPER_DISABLE_FALLBACK", "false").strip().lower() in ("true", "1", "yes")
 TTS_VOICE = os.getenv("TTS_VOICE", "").strip() or None
 TTS_VOICE_HI = os.getenv("TTS_VOICE_HI", "").strip() or TTS_VOICE
 TTS_VOICE_EN = os.getenv("TTS_VOICE_EN", "").strip() or TTS_VOICE
@@ -928,14 +929,22 @@ async def transcribe_audio(file: UploadFile = File(...)):
 
         result = transcribe_audio_file_with_google(temp_path, file.content_type)
         if result is None:
+            if WHISPER_DISABLE_FALLBACK:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Google Speech-to-Text API is not available or failed. "
+                           "Local FFmpeg fallback is disabled. Please ensure GOOGLE_API_KEY is set and valid."
+                )
             try:
                 result = transcribe_audio_file(temp_path)
                 result["source"] = "local"
             except FileNotFoundError as e:
                 raise HTTPException(
                     status_code=500,
-                    detail="FFmpeg is not installed. Please install FFmpeg to use audio transcription. "
-                           "On Windows: choco install ffmpeg or download from https://ffmpeg.org/download.html"
+                    detail="FFmpeg is not installed. To use audio transcription on Windows: "
+                           "1) Install FFmpeg: choco install ffmpeg (via Chocolatey) or download from https://ffmpeg.org/download.html "
+                           "2) Restart the backend server. \n"
+                           "Or set WHISPER_DISABLE_FALLBACK=true in .env to use only Google Speech-to-Text API (requires GOOGLE_API_KEY)."
                 )
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Audio transcription failed: {str(e)}")
