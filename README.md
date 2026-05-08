@@ -346,6 +346,18 @@ The `MindfulBackground` component (`src/components/MindfulBackground.jsx`) is a 
 
 The Python backend is **optional** — the app works fully without it via Gemini + offline fallback. But running it gives you a local ML model as an additional layer.
 
+### For Windows Users (without FFmpeg):
+
+If you set `WHISPER_DISABLE_FALLBACK=true` and `TTS_DISABLE_FALLBACK=true` in your `.env`, you can skip installing additional dependencies. The backend will only need:
+
+```bash
+cd MindScript-project-main/diary_backend
+pip install fastapi uvicorn pydantic google-generativeai
+python3 -m uvicorn server:app --reload --port 8000
+```
+
+### Standard Setup (all features):
+
 **Terminal 1 — Python Backend:**
 
 ```bash
@@ -353,7 +365,11 @@ The Python backend is **optional** — the app works fully without it via Gemini
 cd MindScript-project-main/diary_backend
 
 # Install dependencies (one-time)
-pip install fastapi uvicorn joblib scikit-learn pydantic
+pip install fastapi uvicorn joblib scikit-learn pydantic google-generativeai
+
+# On Windows, if you want local audio/TTS fallback (optional):
+# - Install FFmpeg: choco install ffmpeg
+# - Or download from https://ffmpeg.org/download.html
 
 # Start the server
 python3 -m uvicorn server:app --reload --port 8000
@@ -363,6 +379,9 @@ The backend will start at: **http://localhost:8000**
 
 Available endpoints:
 - `POST /analyze-diary` — Accepts `{ "text": "..." }`, returns `{ "score": int, "message": str, "probability": float, "level": str }`
+- `POST /transcribe-audio` — Audio transcription (uses Google Speech-to-Text or Whisper)
+- `POST /speak` — Text-to-speech (uses Google TTS or local engine)
+- `POST /chat` — AI chat endpoint
 
 **Health check:**
 ```bash
@@ -408,13 +427,30 @@ Create a `.env` file in `MindScript-project-main/`:
 ```env
 # .env — NEVER commit this file to git
 VITE_GEMINI_API_KEY=your_google_gemini_api_key_here
+GOOGLE_API_KEY=your_google_gemini_api_key_here
 ```
 
 Get your free Gemini API key at: [aistudio.google.com](https://aistudio.google.com/apikey)
 
 > ⚠️ The `.env` file is listed in `.gitignore` and will **never** be committed to the repository. Your API key stays local only.
 
-**Note:** Even without a key, the app is functional — it falls through to the custom ML backend and offline keyword engine automatically.
+### Windows Users: Skip FFmpeg Requirement
+
+If you want to use the app **without installing FFmpeg** on Windows (using only Google APIs), add these lines to your `.env`:
+
+```env
+# Optional: Use Google APIs only, skip local FFmpeg fallback
+WHISPER_DISABLE_FALLBACK=true
+TTS_DISABLE_FALLBACK=true
+```
+
+With these settings:
+- ✅ Audio transcription uses Google Speech-to-Text API
+- ✅ Voice responses use Google Text-to-Speech API
+- ✅ Chat uses Gemini API
+- ✅ **No FFmpeg installation needed**
+
+**Note:** Even without a key, the app is functional — it falls through to the custom ML backend and offline keyword engine automatically. For audio/speech features on Windows with APIs, set the flags above.
 
 ---
 
