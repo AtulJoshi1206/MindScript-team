@@ -998,3 +998,45 @@ def speak(req: SpeakRequest):
         media_type="audio/wav",
         headers={"Cache-Control": "no-store"},
     )
+
+# ---------- File-based Storage API ----------
+
+STORAGE_FILE = BASE_DIR / "mindscript_db.json"
+
+def load_db():
+    if not STORAGE_FILE.exists():
+        return {}
+    try:
+        with STORAGE_FILE.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_db(data):
+    try:
+        with STORAGE_FILE.open("w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"Error saving DB: {e}")
+
+@app.get("/storage/{key}")
+def get_storage(key: str):
+    db = load_db()
+    return {"value": db.get(key)}
+
+@app.post("/storage/{key}")
+async def set_storage(key: str, req: dict):
+    # Expecting {"value": ...}
+    db = load_db()
+    db[key] = req.get("value")
+    save_db(db)
+    return {"status": "success"}
+
+@app.post("/storage-batch")
+async def batch_set_storage(req: dict):
+    # Expecting {"data": {"key1": "val1", "key2": "val2"}}
+    db = load_db()
+    updates = req.get("data", {})
+    db.update(updates)
+    save_db(db)
+    return {"status": "success", "count": len(updates)}

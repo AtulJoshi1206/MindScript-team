@@ -1,0 +1,280 @@
+{
+  "mindscript_users": {
+    "atul.joshi1206@gmail.com": {
+      "name": "Atul Joshi",
+      "email": "atul.joshi1206@gmail.com",
+      "salt": "278e72f652d6796f5873570178025605",
+      "hash": "d0eb94c834163260565def6af787c5cfd3cba515850b20aae6b30ad751accd40",
+      "createdAt": 1773144307852
+    },
+    "jatul1204@gmail.com": {
+      "name": "Akshay",
+      "email": "jatul1204@gmail.com",
+      "salt": "841a52837bd905b887561e6226903582",
+      "hash": "c1dbe111e2019d475b1c701a7d760ea1df24776c44649f70c0e49ca9e92a1c9a",
+      "createdAt": 1778256360471
+    }
+  },
+  "mindscript_conversations_atul.joshi1206@gmail.com": [
+    {
+      "role": "model",
+      "text": "It sounds like things are feeling heavy right now. You do not have to hold all of this alone, and we can take it one step at a time."
+    }
+  ],
+  "mindscript_scores_atul.joshi1206@gmail.com": [
+    {
+      "score": 0.5,
+      "type": "diary-initial",
+      "timestamp": 1773144362748
+    },
+    {
+      "score": 0.5,
+      "type": "quiz-initial",
+      "timestamp": 1773144461486
+    },
+    {
+      "score": 0.55,
+      "type": "diary-initial",
+      "timestamp": 1773144989383
+    },
+    {
+      "score": 0.45,
+      "type": "chat-update",
+      "timestamp": 1773145117388
+    },
+    {
+      "score": 0.1,
+      "type": "chat-update",
+      "timestamp": 1773145174062
+    },
+    {
+      "score": 0.31,
+      "type": "quiz-initial",
+      "timestamp": 1773145238772
+    },
+    {
+      "score": 0.31,
+      "type": "quiz-initial",
+      "timestamp": 1773146530981
+    },
+    {
+      "score": 0.9,
+      "type": "chat-update",
+      "timestamp": 1773146558980
+    },
+    {
+      "score": 0.05,
+      "type": "chat-update",
+      "timestamp": 1773146606206
+    },
+    {
+      "score": 0.43,
+      "type": "diary-initial",
+      "timestamp": 1776681419962
+    },
+    {
+      "score": 0.32,
+      "type": "chat-update",
+      "timestamp": 1776681457927
+    },
+    {
+      "score": 0.41,
+      "type": "diary-initial",
+      "timestamp": 1776682864931
+    },
+    {
+      "score": 0.43,
+      "type": "chat-update",
+      "timestamp": 1776682904398
+    },
+    {
+      "score": 0.51,
+      "type": "chat-update",
+      "timestamp": 1776682926280
+    },
+    {
+      "score": 0.05,
+      "type": "diary-initial",
+      "timestamp": 1776951653078
+    },
+    {
+      "score": 0.42,
+      "type": "chat-update",
+      "timestamp": 1776951702109
+    },
+    {
+      "score": 0.27,
+      "type": "chat-update",
+      "timestamp": 1776952168302
+    },
+    {
+      "score": 0.96,
+      "type": "diary-initial",
+      "timestamp": 1776953734412
+    },
+    {
+      "score": 0.18,
+      "type": "chat-update",
+      "timestamp": 1776953785441
+    },
+    {
+      "score": 0,
+      "type": "diary-initial",
+      "timestamp": 1776954466980
+    },
+    {
+      "score": 0.2,
+      "type": "chat-update",
+      "timestamp": 1776954529982
+    },
+    {
+      "score": 0.03,
+      "type": "chat-update",
+      "timestamp": 1776954556757
+    },
+    {
+      "score": 0,
+      "type": "diary-initial",
+      "timestamp": 1776954576402
+    },
+    {
+      "score": 0.03,
+      "type": "diary-initial",
+      "timestamp": 1776954611403
+    },
+    {
+      "score": 0.03,
+      "type": "diary-initial",
+      "timestamp": 1776954617501
+    },
+    {
+      "score": 0.89,
+      "type": "diary-initial",
+      "timestamp": 1777013911979
+    },
+    {
+      "score": 0.65,
+      "type": "chat-update",
+      "timestamp": 1777014023792
+    },
+    {
+      "score": 0.76,
+      "type": "chat-update",
+      "timestamp": 1777016087951
+    },
+    {
+      "score": 0.85,
+      "type": "chat-update",
+      "timestamp": 1777016203494
+    },
+    {
+      "score": 0.74,
+      "type": "chat-update",
+      "timestamp": 1777016317354
+    },
+    {
+      "score": 0.75,
+      "type": "chat-update",
+      "timestamp": 1777891985574
+    },
+    {
+      "score": 0.32,
+      "type": "chat-update",
+      "timestamp": 1777893600126
+    },
+    {
+      "score": 0.81,
+      "type": "chat-update",
+      "timestamp": 1777893855928
+    },
+    {
+      "score": 0.81,
+      "type": "chat-update",
+      "timestamp": 1777894397963
+    },
+    {
+      "score": 0.29,
+      "type": "chat-update",
+      "timestamp": 1777895549924
+    },
+    {
+      "score": 0.31,
+      "type": "chat-update",
+      "timestamp": 1777895611909
+    },
+    {
+      "score": 0.43,
+      "type": "chat-update",
+      "timestamp": 1777959280816
+    },
+    {
+      "score": 0.11,
+      "type": "quiz-initial",
+      "timestamp": 1777961956474
+    },
+    {
+      "score": 0.08,
+      "type": "quiz-initial",
+      "timestamp": 1777962011781
+    },
+    {
+      "score": 0.75,
+      "type": "chat-update",
+      "timestamp": 1777971988963
+    },
+    {
+      "score": 0.47,
+      "type": "quiz-initial",
+      "timestamp": 1777972099853
+    },
+    {
+      "score": 0.29,
+      "type": "diary-initial",
+      "timestamp": 1777972308328
+    },
+    {
+      "score": 0.14,
+      "type": "diary-initial",
+      "timestamp": 1777972370288
+    },
+    {
+      "score": 0.14,
+      "type": "diary-initial",
+      "timestamp": 1777972378899
+    },
+    {
+      "score": 0.75,
+      "type": "diary-initial",
+      "timestamp": 1777973573163
+    },
+    {
+      "score": 0,
+      "type": "diary-initial",
+      "timestamp": 1778227798560
+    }
+  ],
+  "mindscript_conversations_jatul1204@gmail.com": [
+    {
+      "role": "model",
+      "text": "Hey Akshay! I'm MindScript, your wellness companion. How are you feeling today?"
+    },
+    {
+      "role": "user",
+      "text": "\u092e\u0947\u0930\u093e \u092e\u0928 \u0915\u093e\u092b\u0940 \u091c\u094d\u092f\u093e\u0926\u093e \u0916\u0930\u093e\u092c \u0939\u0948\u0964",
+      "source": "voice"
+    },
+    {
+      "role": "model",
+      "text": "\u092e\u0948\u0902 \u0938\u092e\u091d \u0930\u0939\u0940 \u0939\u0942\u0901\u0964 \u0924\u0941\u092e\u094d\u0939\u093e\u0930\u0947 \u0932\u093f\u090f \u0907\u0938 \u092c\u093e\u0924 \u0915\u093e \u0938\u092c\u0938\u0947 \u091c\u093c\u094d\u092f\u093e\u0926\u093e \u092e\u093e\u092f\u0928\u0947 \u0915\u094d\u092f\u093e \u0939\u0948?"
+    },
+    {
+      "role": "user",
+      "text": "Aapka swagat hai.",
+      "source": "voice"
+    },
+    {
+      "role": "model",
+      "text": "\u0928\u092e\u0938\u094d\u0924\u0947 \u0905\u0915\u094d\u0937\u092f, \u0906\u092a\u0915\u0947 \u0938\u094d\u0935\u093e\u0917\u0924 \u0915\u0947 \u0932\u093f\u090f \u092c\u0939\u0941\u0924 \u0936\u0941\u0915\u094d\u0930\u093f\u092f\u093e\u0964 \u092e\u0941\u091d\u0947 \u092e\u0939\u0938\u0942\u0938 \u0939\u094b \u0930\u0939\u093e \u0939\u0948 \u0915\u093f \u0906\u092a \u0905\u092d\u0940 \u090f\u0915 \u092e\u0941\u0936\u094d\u0915\u093f\u0932 \u0926\u094c\u0930 \u0938\u0947 \u0917\u0941\u091c\u093c\u0930 \u0930\u0939\u0947 \u0939\u0948\u0902\u0964 \u0915\u094d\u092f\u093e \u0906\u092a \u092c\u0924\u093e \u0938\u0915\u0924\u0947 \u0939\u0948\u0902 \u0915\u093f \u0907\u0938 \u0938\u092e\u092f \u0906\u092a\u0915\u0947 \u092e\u0928 \u092e\u0947\u0902 \u0938\u092c\u0938\u0947 \u091c\u093c\u094d\u092f\u093e\u0926\u093e \u0915\u094d\u092f\u093e \u091a\u0932 \u0930\u0939\u093e \u0939\u0948?"
+    }
+  ]
+}

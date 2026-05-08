@@ -15,6 +15,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import {
   registerUser, loginUser, setSession, getSession, clearSession,
   getUserScores, saveUserScore, getUserConversation, saveUserConversation,
+  migrateToBackend
 } from './utils/auth';
 
 // Constants
@@ -317,13 +318,23 @@ export default function MindScriptApp() {
 
   // Check session on mount
   useEffect(() => {
-    const session = getSession();
-    if (session) {
-      setCurrentUser(session);
-      setScoreHistory(getUserScores(session.email));
-      setChatHistory(getUserConversation(session.email));
+    async function init() {
+      // 1. Sync any existing local data to the backend file system
+      await migrateToBackend();
+
+      // 2. Load session
+      const session = getSession();
+      if (session) {
+        setCurrentUser(session);
+        // 3. Load user data from backend
+        const scores = await getUserScores(session.email);
+        setScoreHistory(scores);
+        const history = await getUserConversation(session.email);
+        setChatHistory(history);
+      }
+      setAuthChecked(true);
     }
-    setAuthChecked(true);
+    init();
   }, []);
 
   // --- Auth Handlers ---
@@ -332,8 +343,10 @@ export default function MindScriptApp() {
     if (!result.success) throw new Error(result.error);
     setCurrentUser(result.user);
     setSession(result.user);
-    setScoreHistory(getUserScores(result.user.email));
-    setChatHistory(getUserConversation(result.user.email));
+    const scores = await getUserScores(result.user.email);
+    setScoreHistory(scores);
+    const history = await getUserConversation(result.user.email);
+    setChatHistory(history);
     navigate('/dashboard');
   };
 
@@ -365,16 +378,16 @@ export default function MindScriptApp() {
   };
 
   // --- Score persistence ---
-  const saveScore = (scoreData) => {
+  const saveScore = async (scoreData) => {
     if (!currentUser) return;
-    const updated = saveUserScore(currentUser.email, scoreData);
+    const updated = await saveUserScore(currentUser.email, scoreData);
     setScoreHistory(updated);
   };
 
-  const persistChatHistory = (history) => {
+  const persistChatHistory = async (history) => {
     setChatHistory(history);
     if (currentUser?.email) {
-      saveUserConversation(currentUser.email, history);
+      await saveUserConversation(currentUser.email, history);
     }
   };
 
@@ -443,7 +456,7 @@ export default function MindScriptApp() {
       source: options.source || 'text',
     };
     const newHistory = [...chatHistory, userMsg];
-    persistChatHistory(newHistory);
+    await persistChatHistory(newHistory);
     setCurrentMessage('');
     setIsLoading(true);
 
@@ -455,7 +468,7 @@ export default function MindScriptApp() {
     ) || buildOfflineChatReply(cleanText, newHistory);
 
     const updatedHistory = [...newHistory, { role: 'model', text: botText }];
-    persistChatHistory(updatedHistory);
+    await persistChatHistory(updatedHistory);
 
     const newCount = msgCountSinceAnalysis + 1;
     setMsgCountSinceAnalysis(newCount);
@@ -486,7 +499,7 @@ export default function MindScriptApp() {
       const transcript = await transcribeVoiceBlob(blob);
       const spokenText = transcript?.text?.trim();
       if (!spokenText) {
-        persistChatHistory([
+        await persistChatHistory([
           ...chatHistory,
           {
             role: 'model',
@@ -592,17 +605,17 @@ export default function MindScriptApp() {
       } else {
         throw new Error("Local scoring backend unavailable");
       }
-
+      
       setMentalScore(score);
-      saveScore({ score, type: 'diary-initial' });
-      persistChatHistory([{ role: 'model', text: openingMessage }]);
+      await saveScore({ score, type: 'diary-initial' });
+      await persistChatHistory([{ role: 'model', text: openingMessage }]);
       setMsgCountSinceAnalysis(0);
     } catch (err) {
       console.error("Diary analysis error:", err);
       const fallbackMessage = "I couldn't analyze that diary entry locally right now. Please try again once the backend is running.";
       setMentalScore(0.5);
-      saveScore({ score: 0.5, type: 'diary-initial-offline' });
-      persistChatHistory([{ role: 'model', text: fallbackMessage }]);
+      await saveScore({ score: 0.5, type: 'diary-initial-offline' });
+      await persistChatHistory([{ role: 'model', text: fallbackMessage }]);
     } finally {
       setIsLoading(false);
       navigate('/chat');
@@ -628,15 +641,15 @@ export default function MindScriptApp() {
 
     try {
       setMentalScore(score);
-      saveScore({ score, type: 'quiz-initial' });
-      persistChatHistory([{ role: 'model', text: openingMessage }]);
+      await saveScore({ score, type: 'quiz-initial' });
+      await persistChatHistory([{ role: 'model', text: openingMessage }]);
       setMsgCountSinceAnalysis(0);
     } catch (err) {
       console.error('Quiz scoring error:', err);
       const fallbackScore = 0.5;
       setMentalScore(fallbackScore);
-      saveScore({ score: fallbackScore, type: 'quiz-initial-offline' });
-      persistChatHistory([{ role: 'model', text: "I couldn't process that assessment right now. Please try again in a moment." }]);
+      await saveScore({ score: fallbackScore, type: 'quiz-initial-offline' });
+      await persistChatHistory([{ role: 'model', text: "I couldn't process that assessment right now. Please try again in a moment." }]);
     } finally {
       setIsLoading(false);
       navigate('/chat');
@@ -657,7 +670,7 @@ export default function MindScriptApp() {
       const localResult = await fetchLocalModel(context);
       if (localResult && typeof localResult.score === 'number') {
         setMentalScore(localResult.score);
-        saveScore({ score: localResult.score, type: 'chat-update' });
+        await saveScore({ score: localResult.score, type: 'chat-update' });
       }
     } catch (error) {
       console.error("Chat score recalculation error:", error);
@@ -671,8 +684,8 @@ export default function MindScriptApp() {
   };
 
   // Quick chat without diary/quiz
-  const startQuickChat = () => {
-    persistChatHistory([{
+  const startQuickChat = async () => {
+    await persistChatHistory([{
       role: 'model',
       text: `Hey ${currentUser?.name || 'there'}! I'm MindScript, your wellness companion. How are you feeling today?`
     }]);
