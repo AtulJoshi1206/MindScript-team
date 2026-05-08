@@ -712,8 +712,8 @@ export default function MindScriptApp() {
           <DashboardPage
             userName={currentUser.name}
             scoreHistory={scoreHistory}
-            onStartDiary={() => { setInputData({ type: 'diary', content: '' }); navigate('/input-select'); }}
-            onStartQuiz={() => { setQuizAnswers({}); navigate('/input-select'); }}
+            onStartDiary={() => { setInputData({ type: 'diary', content: '' }); navigate('/diary'); }}
+            onStartQuiz={() => { setQuizAnswers({}); navigate('/quiz'); }}
             onStartChat={startQuickChat}
             onLogout={handleLogout}
           />
